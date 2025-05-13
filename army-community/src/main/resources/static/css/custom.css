@@ -1,0 +1,12 @@
+/* Custom styles for ARMY Community Platform */
+body {
+    font-family: 'Rubik', sans-serif;
+    background-color: #f8f9fa;
+}
+
+.jumbotron {
+    background-color: #ffffff;
+    padding: 2rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}

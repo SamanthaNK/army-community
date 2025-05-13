@@ -1,4 +1,4 @@
-package com.armycommunity.army_community;
+package com.armycommunity;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
