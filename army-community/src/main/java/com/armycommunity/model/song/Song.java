@@ -1,7 +1,6 @@
 package com.armycommunity.model.song;
 
 import com.armycommunity.model.album.Album;
-import com.armycommunity.model.album.MusicVideo;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
