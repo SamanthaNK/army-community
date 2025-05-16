@@ -10,9 +10,9 @@ import java.util.List;
 
 @Repository
 public interface CommentRepository extends JpaRepository<Comment, Long> {
-    Page<Comment> findByPostIdOrderByCreatedAtDesc(Long postId, Pageable pageable);
+    Page<Comment> findByPostIdAndIsDeletedFalseAndParentCommentIdNullOrderByCreatedAtDesc(Long postId, Pageable pageable);
 
-    Page<Comment> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
+    Page<Comment> findByUserIdAndIsDeletedFalseOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
     List<Comment> findByParentCommentId(Long parentCommentId);
 

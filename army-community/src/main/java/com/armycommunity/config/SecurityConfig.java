@@ -17,10 +17,36 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())  // Temporarily disable CSRF for development
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/login", "/register", "/css/**", "/js/**", "/images/**", "/error").permitAll()
-                        .requestMatchers("/api/public/**").permitAll()
-                        .requestMatchers("/albums/**", "/songs/**", "/members/**", "/eras/**").permitAll()
-                        .requestMatchers("/admin/**").hasRole("ADMIN")
+                        // public endpoints
+                        .requestMatchers(
+                                "/",
+                                "/login",
+                                "/register",
+                                "/css/**",
+                                "/js/**",
+                                "/images/**",
+                                "/error"
+                        ).permitAll()
+
+                        // API endpoints
+                        .requestMatchers(
+                                "/api/public/**"
+                        ).permitAll()
+
+                        // Static resources endpoints
+                        .requestMatchers(
+                                "/albums/**",
+                                "/songs/**",
+                                "/members/**",
+                                "/eras/**"
+                        ).permitAll()
+
+                        // Admin endpoints
+                        .requestMatchers(
+                                "/admin/**",
+                                "/api/admin/**"
+                        ).hasRole("ADMIN")
+
                         .anyRequest().authenticated()
                 )
                 .formLogin(form -> form
@@ -30,6 +56,8 @@ public class SecurityConfig {
                 )
                 .logout(logout -> logout
                         .logoutSuccessUrl("/")
+                        .clearAuthentication(true)
+                        .invalidateHttpSession(true)
                         .permitAll()
                 );
 

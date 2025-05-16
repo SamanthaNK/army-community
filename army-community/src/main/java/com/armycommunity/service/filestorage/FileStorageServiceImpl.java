@@ -1,5 +1,6 @@
 package com.armycommunity.service.filestorage;
 
+import com.armycommunity.exception.FileStorageException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
@@ -20,60 +21,73 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class FileStorageServiceImpl implements FileStorageService {
 
-    @Value("${file.upload-dir}")
-    private String uploadDir;
+    private final Path fileStorageLocation;
+
+    public FileStorageServiceImpl(@Value("${file.upload-dir:uploads}") String uploadDir) {
+        this.fileStorageLocation = Paths.get(uploadDir).toAbsolutePath().normalize();
+        try {
+            Files.createDirectories(this.fileStorageLocation);
+        } catch (IOException ex) {
+            throw new FileStorageException("Could not create the directory where the uploaded files will be stored", ex);
+        }
+    }
 
     @Override
-    public String storeFile(MultipartFile file, String subDirectory) throws IOException {
-        // Create the target directory if it doesn't exist
-        Path targetDir = Paths.get(uploadDir, subDirectory).toAbsolutePath().normalize();
-        Files.createDirectories(targetDir);
-
-        // Generate a unique filename
+    public String storeFile(MultipartFile file, String directory) throws IOException {
+        // Normalize file name
         String originalFilename = StringUtils.cleanPath(file.getOriginalFilename());
-        String uniqueFilename = UUID.randomUUID().toString() +
-                originalFilename.substring(originalFilename.lastIndexOf("."));
 
-        // Copy the file to the target location
-        Path targetLocation = targetDir.resolve(uniqueFilename);
+        // Check if the file's name contains invalid characters
+        if (originalFilename.contains("..")) {
+            throw new FileStorageException("Filename contains invalid path sequence: " + originalFilename);
+        }
+
+        // Generate unique file name with UUID to prevent overwriting
+        String fileExtension = "";
+        if (originalFilename.contains(".")) {
+            fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
+        }
+        String uniqueFilename = UUID.randomUUID().toString() + fileExtension;
+
+        // Create directory if it doesn't exist
+        Path directoryPath = this.fileStorageLocation.resolve(directory).normalize();
+        Files.createDirectories(directoryPath);
+
+        // Copy file to the target location
+        Path targetLocation = directoryPath.resolve(uniqueFilename);
         Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
 
-        // Return the relative path for storing in the database
-        return subDirectory + "/" + uniqueFilename;
+        return directory + "/" + uniqueFilename;
     }
 
     @Override
     public Resource loadFileAsResource(String filePath) {
         try {
-            Path fileLocation = Paths.get(uploadDir, filePath).toAbsolutePath().normalize();
-            Resource resource = new UrlResource(fileLocation.toUri());
+            Path file = this.fileStorageLocation.resolve(filePath).normalize();
+            Resource resource = new UrlResource(file.toUri());
 
             if (resource.exists()) {
                 return resource;
             } else {
-                throw new RuntimeException("File not found: " + filePath);
+                throw new FileStorageException("File not found: " + filePath);
             }
         } catch (MalformedURLException ex) {
-            throw new RuntimeException("File not found: " + filePath, ex);
+            throw new FileStorageException("File not found: " + filePath, ex);
         }
     }
 
-    @Override
     public void deleteFile(String filePath) throws IOException {
-        if (filePath != null && !filePath.isEmpty()) {
-            Path targetLocation = Paths.get(uploadDir, filePath).toAbsolutePath().normalize();
-            Files.deleteIfExists(targetLocation);
-        }
+        Path file = this.fileStorageLocation.resolve(filePath).normalize();
+        Files.deleteIfExists(file);
     }
 
     @Override
     public Path getFilePath(String filename, String directory) {
-        return Paths.get(uploadDir, directory, filename).toAbsolutePath().normalize();
+        return this.fileStorageLocation.resolve(directory).resolve(filename).normalize();
     }
 
     @Override
     public String getStorageDirectory() {
-        return uploadDir;
+        return this.fileStorageLocation.toString();
     }
-
 }

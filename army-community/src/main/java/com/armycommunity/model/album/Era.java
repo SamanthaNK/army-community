@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
@@ -27,11 +28,11 @@ public class Era {
     @Column(name = "name", nullable = false, unique = true)
     private String name;
 
-    @Column(name = "start_date", nullable = false)
-    private String startDate;
+    @Column(name = "start_date")
+    private LocalDate startDate;
 
     @Column(name = "end_date")
-    private String endDate;
+    private LocalDate endDate;
 
     @Column(name = "description")
     private String description;

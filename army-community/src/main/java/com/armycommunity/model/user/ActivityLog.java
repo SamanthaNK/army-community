@@ -23,7 +23,7 @@ public class ActivityLog {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
-    private User user;
+    private Long userId;
 
     @Column(name = "action_type", nullable = false, length = 50)
     private String actionType;
