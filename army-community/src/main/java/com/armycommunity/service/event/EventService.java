@@ -1,7 +1,7 @@
 package com.armycommunity.service.event;
 
-import com.armycommunity.dto.response.post.EventResponse;
 import com.armycommunity.dto.request.post.EventRequest;
+import com.armycommunity.dto.response.post.EventResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 

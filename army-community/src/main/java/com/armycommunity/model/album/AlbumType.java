@@ -1,5 +1,8 @@
 package com.armycommunity.model.album;
 
+/**
+ * Enum representing different types albums.
+ */
 public enum AlbumType {
     STUDIO_ALBUM,
     MINI_ALBUM,

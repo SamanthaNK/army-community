@@ -1,10 +1,9 @@
 package com.armycommunity.service.setting;
 
+import com.armycommunity.model.user.Setting;
 import com.armycommunity.repository.user.SettingRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-
-import com.armycommunity.model.user.Setting;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;

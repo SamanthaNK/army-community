@@ -13,6 +13,10 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * Entity representing a BTS era.
+ * Defines periods associated with specific album releases and their details.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

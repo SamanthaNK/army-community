@@ -1,5 +1,6 @@
 package com.armycommunity.dto.request.member;
 
+import com.armycommunity.model.member.MemberLine;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -7,7 +8,8 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDate;
-import java.util.List;
+import java.util.Set;
+
 
 @Getter
 @Setter
@@ -26,5 +28,5 @@ public class MemberRequest {
     @Size(max = 100, message = "Position cannot exceed 100 characters")
     private String position;
 
-    private List<String> lineTypes;
+    private Set<MemberLine> lineTypes;
 }

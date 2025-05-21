@@ -1,6 +1,7 @@
 package com.armycommunity.repository.member;
 
 import com.armycommunity.model.member.Member;
+import com.armycommunity.model.member.MemberLine;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -14,7 +15,7 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
     @Query("SELECT m FROM Member m JOIN MemberLineAssignment mla ON m.id = mla.member.id " +
             "WHERE mla.lineType = ?1")
-    List<Member> findByLineType(String lineType);
+    List<Member> findByLineType(MemberLine lineType);
 
     @Query("SELECT m FROM Member m JOIN SongMember sm ON m.id = sm.member.id " +
             "WHERE sm.song.id = ?1")

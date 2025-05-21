@@ -3,7 +3,6 @@ package com.armycommunity.mapper;
 import com.armycommunity.dto.request.post.PostRequest;
 import com.armycommunity.dto.response.post.PostResponse;
 import com.armycommunity.model.post.Post;
-import com.armycommunity.model.post.PostTag;
 import com.armycommunity.model.user.User;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;

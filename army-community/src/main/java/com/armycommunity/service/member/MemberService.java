@@ -4,6 +4,7 @@ import com.armycommunity.dto.request.member.MemberRequest;
 import com.armycommunity.dto.response.member.MemberDetailResponse;
 import com.armycommunity.dto.response.member.MemberSummaryResponse;
 import com.armycommunity.model.member.Member;
+import com.armycommunity.model.member.MemberLine;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -21,7 +22,7 @@ public interface MemberService {
 
     List<MemberSummaryResponse> getAllMembers();
 
-    List<MemberSummaryResponse> getMembersByLine(String lineType);
+    List<MemberSummaryResponse> getMembersByLine(MemberLine lineType);
 
     List<MemberSummaryResponse> getMembersBySong(Long songId);
 

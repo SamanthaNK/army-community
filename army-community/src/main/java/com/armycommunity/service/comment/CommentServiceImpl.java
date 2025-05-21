@@ -1,7 +1,7 @@
 package com.armycommunity.service.comment;
 
-import com.armycommunity.dto.response.post.CommentResponse;
 import com.armycommunity.dto.request.post.CommentRequest;
+import com.armycommunity.dto.response.post.CommentResponse;
 import com.armycommunity.exception.ResourceNotFoundException;
 import com.armycommunity.mapper.CommentMapper;
 import com.armycommunity.model.post.Comment;
@@ -14,10 +14,10 @@ import com.armycommunity.service.activitylog.ActivityLogService;
 import com.armycommunity.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.data.domain.PageImpl;
 
 import java.time.LocalDateTime;
 import java.util.Collections;

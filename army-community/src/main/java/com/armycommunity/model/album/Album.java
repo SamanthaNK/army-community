@@ -2,6 +2,7 @@ package com.armycommunity.model.album;
 
 import com.armycommunity.model.song.Song;
 import com.armycommunity.model.user.UserCollection;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -9,13 +10,14 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
-import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
-
+/**
+ * Entity representing a BTS album.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -73,26 +75,4 @@ public class Album {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
-
-    /*
-    // Helper methods
-    public void addSong(Song song) {
-        songs.add(song);
-        song.setAlbum(this);
-    }
-
-    public void removeSong(Song song) {
-        songs.remove(song);
-        song.setAlbum(null);
-    }
-
-    public void addMemberRole(Member member, String role) {
-        MemberAlbum memberAlbum = new MemberAlbum();
-        memberAlbum.setMember(member);
-        memberAlbum.setAlbum(this);
-        memberAlbum.setRole(role);
-        memberAlbums.add(memberAlbum);
-        member.getAlbums().add(memberAlbum);
-    }
-     */
 }

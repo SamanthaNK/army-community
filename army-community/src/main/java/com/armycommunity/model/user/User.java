@@ -8,7 +8,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -16,6 +15,9 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * Entity representing a user in the system
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -39,6 +41,7 @@ public class User {
     @Column(name = "profile_image_path")
     private String profileImagePath;
 
+    @Column(columnDefinition = "TEXT")
     private String bio;
 
     @CreationTimestamp
