@@ -1,23 +1,17 @@
 package com.armycommunity.dto.response.song;
 
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
-import java.time.LocalDate;
-import java.util.List;
-
-@Getter
-@Setter
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class SongSummaryResponse {
     private Long id;
     private String title;
     private String koreanTitle;
-    private Long albumId;
-    private String albumTitle;
-    private Integer trackNumber;
     private Integer duration;
+    private Integer trackNumber;
     private boolean isTitle;
     private String language;
-    private List<String> featuringArtist;
-    private LocalDate releaseDate;
 }

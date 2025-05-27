@@ -26,4 +26,8 @@ public interface EraService {
     EraSummaryResponse getEraByDate(LocalDate date);
 
     Era findOrCreateEra(EraRequest request);
+
+    Boolean existsByName(String name);
+
+    List<EraSummaryResponse> getErasByDateRange(LocalDate startDate, LocalDate endDate);
 }

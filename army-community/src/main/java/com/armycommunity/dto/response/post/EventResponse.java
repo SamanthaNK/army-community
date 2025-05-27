@@ -1,12 +1,14 @@
 package com.armycommunity.dto.response.post;
 
-import lombok.Getter;
-import lombok.Setter;
+import com.armycommunity.dto.response.user.UserSummaryResponse;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
-@Getter
-@Setter
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class EventResponse {
     private Long id;
     private String title;
@@ -16,7 +18,11 @@ public class EventResponse {
     private String timeZone;
     private String eventType;
     private Long creatorId;
-    private String creatorUsername;
+    private UserSummaryResponse createdBy;
+    private Boolean isVerified;
+    private Long verifiedBy;
+    private LocalDateTime verifiedAt;
+    private UserSummaryResponse verifier; // Details of who verified
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

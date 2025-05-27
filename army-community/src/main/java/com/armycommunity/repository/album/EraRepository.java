@@ -8,11 +8,14 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Repository interface for managing Era entities.
+ */
 @Repository
 public interface EraRepository extends JpaRepository<Era, Long> {
     Optional<Era> findByName(String name);
 
-    List<Era> findByStartDateBeforeAndEndDateAfterOrEndDateIsNull(LocalDate date, LocalDate sameDate);
+    Optional<Era> findByStartDateBeforeAndEndDateAfterOrEndDateIsNull(LocalDate date, LocalDate sameDate);
 
     List<Era> findByOrderByStartDateAsc();
 }

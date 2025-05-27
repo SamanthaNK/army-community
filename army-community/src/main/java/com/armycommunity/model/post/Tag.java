@@ -11,6 +11,9 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * Entity representing a tag that can be associated with posts.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -32,5 +35,4 @@ public class Tag {
 
     @OneToMany(mappedBy = "tag", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<PostTag> posts = new HashSet<>();
-
 }

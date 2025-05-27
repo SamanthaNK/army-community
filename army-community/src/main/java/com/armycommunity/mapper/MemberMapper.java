@@ -4,10 +4,14 @@ import com.armycommunity.dto.request.member.MemberRequest;
 import com.armycommunity.dto.response.member.MemberDetailResponse;
 import com.armycommunity.dto.response.member.MemberSummaryResponse;
 import com.armycommunity.model.member.Member;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
-import org.mapstruct.NullValuePropertyMappingStrategy;
+import com.armycommunity.model.member.MemberLine;
+import com.armycommunity.model.member.MemberLineAssignment;
+import org.mapstruct.*;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Mapper(componentModel = "spring", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
 public interface MemberMapper {
@@ -18,16 +22,27 @@ public interface MemberMapper {
     @Mapping(target = "profileImagePath", ignore = true)
     Member toEntity(MemberRequest request);
 
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "createdAt", ignore = true)
-    @Mapping(target = "profileImagePath", ignore = true)
-    void updateEntity(MemberRequest request, @MappingTarget Member member);
+    MemberDetailResponse toDetailResponse(Member member);
 
     MemberSummaryResponse toSummaryResponse(Member member);
 
-    @Mapping(target = "lineTypes", ignore = true)
-    @Mapping(target = "songCount", ignore = true)
-    @Mapping(target = "albums", ignore = true)
-    @Mapping(target = "recentSongs", ignore = true)
-    MemberDetailResponse toDetailResponse(Member member);
+    List<MemberSummaryResponse> toSummaryResponseList(List<Member> members);
+
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "memberLineAssignments", ignore = true)
+    @Mapping(target = "songMembers", ignore = true)
+    @Mapping(target = "memberAlbums", ignore = true)
+    void updateMemberFromRequest(MemberRequest request, @MappingTarget Member member);
+
+    @Named("memberLineAssignmentsToLineTypes")
+    default Set<MemberLine> memberLineAssignmentsToLineTypes(Set<MemberLineAssignment> assignments) {
+        if (assignments == null || assignments.isEmpty()) {
+            return Collections.emptySet();
+        }
+        return assignments.stream()
+                .map(MemberLineAssignment::getLineType)
+                .collect(Collectors.toSet());
+    }
 }

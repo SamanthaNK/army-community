@@ -8,11 +8,14 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
+/**
+ * NotificationRepository is an interface for managing Notification entities.
+ */
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
-    Page<Notification> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
+    List<Notification> findByUserIdOrderByCreatedAtDesc(Long userId);
 
     List<Notification> findByUserIdAndIsReadFalse(Long userId);
 
-    Integer countByUserIdAndIsReadFalse(Long userId);
+    Long countByUserIdAndIsReadFalse(Long userId);
 }

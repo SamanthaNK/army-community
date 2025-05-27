@@ -1,74 +1,68 @@
 package com.armycommunity.service.era;
 
 import com.armycommunity.dto.request.album.EraRequest;
-import com.armycommunity.dto.response.album.AlbumSummaryResponse;
 import com.armycommunity.dto.response.album.EraDetailResponse;
 import com.armycommunity.dto.response.album.EraSummaryResponse;
+import com.armycommunity.exception.DuplicateResourceException;
 import com.armycommunity.exception.ResourceNotFoundException;
-import com.armycommunity.mapper.AlbumMapper;
 import com.armycommunity.mapper.EraMapper;
-import com.armycommunity.model.album.Album;
 import com.armycommunity.model.album.Era;
-import com.armycommunity.repository.album.AlbumRepository;
 import com.armycommunity.repository.album.EraRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
+/**
+ * Service implementation for Era-related operations.
+ */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EraServiceImpl implements EraService {
 
     private final EraRepository eraRepository;
-    private final AlbumRepository albumRepository;
     private final EraMapper eraMapper;
-    private final AlbumMapper albumMapper;
 
     @Override
     @Transactional
     public EraDetailResponse createEra(EraRequest request) {
+        log.debug("Creating new era with name: {}", request.getName());
+
         // Check if era with same name already exists
         if (eraRepository.findByName(request.getName()).isPresent()) {
             throw new IllegalArgumentException("Era with name " + request.getName() + " already exists");
         }
 
-        Era era = eraMapper.toEntity(request);
-        Era savedEra = eraRepository.save(era);
-
-        return getEraById(savedEra.getId());
+        try {
+            Era era = eraMapper.toEntity(request);
+            Era savedEra = eraRepository.save(era);
+            log.info("Successfully created era with id: {} and name: {}", savedEra.getId(), savedEra.getName());
+            return eraMapper.toDetailResponse(savedEra);
+        } catch (DataIntegrityViolationException e) {
+            log.error("Data integrity violation while creating era: {}", e.getMessage());
+            throw new DuplicateResourceException("Era with this name already exists");
+        }
     }
 
     @Override
     @Transactional(readOnly = true)
     public EraDetailResponse getEraById(Long eraId) {
-        Era era = eraRepository.findById(eraId)
+        log.debug("Fetching era with id: {}", eraId);
+        return eraRepository.findById(eraId)
+                .map(eraMapper::toDetailResponse)
                 .orElseThrow(() -> new ResourceNotFoundException("Era not found with id: " + eraId));
-
-        EraDetailResponse response = eraMapper.toDetailResponse(era);
-
-        // Set current status
-        LocalDate today = LocalDate.now();
-        boolean isCurrent = (era.getStartDate().isBefore(today) || era.getStartDate().isEqual(today)) &&
-                (era.getEndDate() == null || era.getEndDate().isAfter(today));
-        response.setCurrent(isCurrent);
-
-        // Add albums for this era
-        List<Album> albums = albumRepository.findByEraId(eraId);
-        List<AlbumSummaryResponse> albumResponses = albums.stream()
-                .map(albumMapper::toSummaryResponse)
-                .collect(Collectors.toList());
-        response.setAlbums(albumResponses);
-
-        return response;
     }
 
     @Override
     @Transactional(readOnly = true)
     public EraDetailResponse getEraByName(String name) {
+        log.debug("Fetching era with name: {}", name);
         return eraRepository.findByName(name)
                 .map(eraMapper::toDetailResponse)
                 .orElseThrow(() -> new ResourceNotFoundException("Era not found with name: " + name));
@@ -77,126 +71,128 @@ public class EraServiceImpl implements EraService {
     @Override
     @Transactional
     public EraDetailResponse updateEra(Long eraId, EraRequest request) {
-        Era era = eraRepository.findById(eraId)
+        log.debug("Updating era with id: {}", eraId);
+
+        Era existingEra = eraRepository.findById(eraId)
                 .orElseThrow(() -> new ResourceNotFoundException("Era not found with id: " + eraId));
 
-        // Check if new name already exists but belongs to different era
-        if (!era.getName().equals(request.getName()) &&
+        // Check if new name already exists but belongs to a different era
+        if (!existingEra.getName().equals(request.getName()) &&
                 eraRepository.findByName(request.getName()).isPresent()) {
             throw new IllegalArgumentException("Era with name " + request.getName() + " already exists");
         }
 
-        eraMapper.updateEntity(request, era);
-        Era updatedEra = eraRepository.save(era);
-
-        return getEraById(updatedEra.getId());
+        try {
+            eraMapper.updateEraFromRequest(request, existingEra);
+            Era updatedEra = eraRepository.save(existingEra);
+            log.info("Successfully updated era with id: {}", eraId);
+            return eraMapper.toDetailResponse(updatedEra);
+        } catch (DataIntegrityViolationException e) {
+            log.error("Data integrity violation while updating era: {}", e.getMessage());
+            throw new DuplicateResourceException("Era with this name already exists");
+        }
     }
 
     @Override
     @Transactional
     public void deleteEra(Long eraId) {
-        if (!eraRepository.existsById(eraId)) {
-            throw new ResourceNotFoundException("Era not found with id: " + eraId);
+        log.debug("Deleting era with id: {}", eraId);
+
+        Era era = eraRepository.findById(eraId)
+                .orElseThrow(() -> new ResourceNotFoundException("Era not found with id: " + eraId));
+
+        // Check if era has associated albums
+        if (!era.getAlbums().isEmpty()) {
+            throw new IllegalStateException("Cannot delete era with associated albums. Please reassign or delete albums first.");
         }
 
-        // Check if there are albums associated with this era
-        List<Album> albums = albumRepository.findByEraId(eraId);
-        if (!albums.isEmpty()) {
-            throw new IllegalStateException("Cannot delete era with associated albums. Remove album associations first.");
-        }
-
-        eraRepository.deleteById(eraId);
+        eraRepository.delete(era);
+        log.info("Successfully deleted era with id: {}", eraId);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<EraSummaryResponse> getAllEras() {
+        log.debug("Fetching all eras");
         List<Era> eras = eraRepository.findByOrderByStartDateAsc();
-        LocalDate today = LocalDate.now();
-
-        return eras.stream()
-                .map(era -> {
-                    EraSummaryResponse response = eraMapper.toSummaryResponse(era);
-
-                    // Set current status
-                    boolean isCurrent = (era.getStartDate().isBefore(today) || era.getStartDate().isEqual(today)) &&
-                            (era.getEndDate() == null || era.getEndDate().isAfter(today));
-                    response.setCurrent(isCurrent);
-
-                    // Set album count
-                    long albumCount = albumRepository.findByEraId(era.getId()).size();
-                    response.setAlbumCount((int) albumCount);
-
-                    return response;
-                })
-                .collect(Collectors.toList());
+        return eraMapper.toSummaryResponseList(eras);
     }
 
     @Override
     @Transactional(readOnly = true)
     public EraSummaryResponse getCurrentEra() {
-        LocalDate today = LocalDate.now();
-        List<Era> currentEras = eraRepository.findByStartDateBeforeAndEndDateAfterOrEndDateIsNull(today, today);
+        log.debug("Fetching current era");
+        LocalDate now = LocalDate.now();
+        Optional<Era> currentEra = eraRepository.findByStartDateBeforeAndEndDateAfterOrEndDateIsNull(now, now);
 
-        if (currentEras.isEmpty()) {
-            throw new ResourceNotFoundException("No current era found");
+        if (currentEra.isPresent()) {
+            return eraMapper.toSummaryResponse(currentEra.get());
         }
 
-        // In case of multiple current eras (should not happen), get the latest one
-        Era currentEra = currentEras.stream()
-                .sorted((e1, e2) -> e2.getStartDate().compareTo(e1.getStartDate()))
-                .findFirst()
-                .orElseThrow();
+        // If no current era found, return the most recent era
+        List<Era> eras = eraRepository.findByOrderByStartDateAsc();
+        if (!eras.isEmpty()) {
+            Era mostRecentEra = eras.get(eras.size() - 1);
+            log.debug("No current era found, returning most recent era: {}", mostRecentEra.getName());
+            return eraMapper.toSummaryResponse(mostRecentEra);
+        }
 
-        EraSummaryResponse response = eraMapper.toSummaryResponse(currentEra);
-        response.setCurrent(true);
-
-        // Set album count
-        long albumCount = albumRepository.findByEraId(currentEra.getId()).size();
-        response.setAlbumCount((int) albumCount);
-
-        return response;
+        throw new ResourceNotFoundException("No eras found");
     }
 
     @Override
     @Transactional(readOnly = true)
     public EraSummaryResponse getEraByDate(LocalDate date) {
-        List<Era> eras = eraRepository.findByStartDateBeforeAndEndDateAfterOrEndDateIsNull(date, date);
+        log.debug("Fetching era for date: {}", date);
+        Optional<Era> era = eraRepository.findByStartDateBeforeAndEndDateAfterOrEndDateIsNull(date, date);
 
-        if (eras.isEmpty()) {
-            throw new ResourceNotFoundException("No era found for date: " + date);
+        if (era.isPresent()) {
+            return eraMapper.toSummaryResponse(era.get());
         }
 
-        Era era = eras.stream()
-                .sorted((e1, e2) -> e2.getStartDate().compareTo(e1.getStartDate()))
-                .findFirst()
-                .orElseThrow();
-
-        EraSummaryResponse response = eraMapper.toSummaryResponse(era);
-
-        // Set current status
-        LocalDate today = LocalDate.now();
-        boolean isCurrent = (era.getStartDate().isBefore(today) || era.getStartDate().isEqual(today)) &&
-                (era.getEndDate() == null || era.getEndDate().isAfter(today));
-        response.setCurrent(isCurrent);
-
-        // Set album count
-        long albumCount = albumRepository.findByEraId(era.getId()).size();
-        response.setAlbumCount((int) albumCount);
-
-        return response;
+        throw new ResourceNotFoundException("No era found for date: " + date);
     }
 
     @Override
     @Transactional
     public Era findOrCreateEra(EraRequest request) {
+        log.debug("Finding or creating era with name: {}", request.getName());
         // Try to find by name first
-        if (request.getName() != null) {
-            return eraRepository.findByName(request.getName())
-                    .orElseGet(() -> eraRepository.save(eraMapper.toEntity(request)));
+        Optional<Era> existingEra = eraRepository.findByName(request.getName());
+        if (existingEra.isPresent()) {
+            log.debug("Era already exists with name: {}", request.getName());
+            return existingEra.get();
         }
 
         // If name is not provided, just create a new era
+        log.info("Creating new era with name: {}", request.getName());
         return eraRepository.save(eraMapper.toEntity(request));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Boolean existsByName(String name) {
+        return eraRepository.findByName(name).isPresent();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<EraSummaryResponse> getErasByDateRange(LocalDate startDate, LocalDate endDate) {
+        log.debug("Fetching eras between {} and {}", startDate, endDate);
+
+        List<Era> eras = eraRepository.findByOrderByStartDateAsc().stream()
+                .filter(era -> {
+                    LocalDate eraStart = era.getStartDate();
+                    LocalDate eraEnd = era.getEndDate();
+
+                    // Era overlaps with the given range if:
+                    // - Era starts before or during the range AND
+                    // - Era ends after or during the range (or is ongoing)
+                    return (eraStart == null || !eraStart.isAfter(endDate)) &&
+                            (eraEnd == null || !eraEnd.isBefore(startDate));
+                })
+                .toList();
+
+        return eraMapper.toSummaryResponseList(eras);
     }
 }

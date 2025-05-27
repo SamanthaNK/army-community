@@ -14,4 +14,6 @@ public interface MusicVideoRepository extends JpaRepository<MusicVideo, Long> {
     List<MusicVideo> findBySongId(Long songId);
 
     List<MusicVideo> findByVideoType(String videoType);
+
+    Long countBySongId(Long songId);
 }

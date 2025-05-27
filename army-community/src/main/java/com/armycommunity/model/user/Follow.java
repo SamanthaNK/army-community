@@ -10,6 +10,10 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
+/**
+ * Entity representing a follow relationship between users.
+ * This is a many-to-many relationship where one user can follow another.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -33,6 +37,10 @@ public class Follow {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    /**
+     * Composite key class for Follow entity.
+     * Contains follower and following IDs to form a unique identifier for the follow relationship.
+     */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor

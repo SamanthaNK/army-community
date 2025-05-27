@@ -14,6 +14,9 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * Entity representing a song.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -79,24 +82,4 @@ public class Song {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
-
-    /*
-    // Helper methods
-    public void addMember(Member member) {
-        SongMember songMember = new SongMember();
-        songMember.setSong(this);
-        songMember.setMember(member);
-        this.songMembers.add(songMember);
-        member.getSongs().add(songMember);
-    }
-
-    public void removeMember(Member member) {
-        songMembers.removeIf(songMember -> songMember.getMember().equals(member));
-    }
-
-    public void addMusicVideo(MusicVideo musicVideo) {
-        musicVideos.add(musicVideo);
-        musicVideo.setSong(this);
-    }
-    */
 }

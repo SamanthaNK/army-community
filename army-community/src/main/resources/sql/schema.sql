@@ -1,13 +1,22 @@
 select * from users;
 -- Enum tables
 -- MEMBER_LINES enum type
-CREATE TYPE member_line AS ENUM ('RAP_LINE', 'VOCAL_LINE', 'HYUNG_LINE', 'MAKNAE_LINE', 'DANCE_LINE');
+create type member_line as ENUM ('RAP_LINE', 'VOCAL_LINE', 'HYUNG_LINE', 'MAKNAE_LINE', 'DANCE_LINE');
 
 -- ALBUM_TYPES enum type
-CREATE TYPE album_type AS ENUM (
+create type album_type as ENUM (
     'STUDIO_ALBUM', 'MINI_ALBUM', 'EP', 'SINGLE', 'DIGITAL_SINGLE',
     'MIXTAPE', 'COMPILATION', 'SOUNDTRACK', 'REMIX', 'REPACKAGE',
     'SPECIAL_ALBUM', 'COLLABORATION', 'SOUNDCLOUD', 'PRE_DEBUT', 'LIVE_ALBUM', 'OTHER'
+);
+
+-- USER_ROLES enum type
+create type user_role as ENUM (
+    'USER',
+    'VERIFIED',
+    'MODERATOR',
+    'ADMIN',
+    'SUPER_ADMIN'
 );
 
 -- USERS table
@@ -20,7 +29,11 @@ CREATE TABLE users (
     bio text,
     created_at timestamp not null default current_timestamp,
     updated_at timestamp not null default current_timestamp,
-    role varchar(20) not null default 'USER',
+    user_role VARCHAR(20) NOT NULL DEFAULT 'USER',
+    verified_at TIMESTAMP,
+    verification_type VARCHAR(50),
+    suspended_until TIMESTAMP,
+    suspension_reason TEXT,
     language_preference varchar(10) default 'en',
     time_zone varchar(50) default 'UTC',
     oauth_provider varchar(20),
@@ -30,6 +43,15 @@ CREATE TABLE users (
 );
 CREATE INDEX idx_users_username on users(username);
 CREATE INDEX idx_users_email on users(email);
+CREATE INDEX idx_users_user_role ON users(user_role);
+CREATE INDEX idx_users_verified_at ON users(verified_at);
+CREATE INDEX idx_users_suspended_until ON users(suspended_until);
+CREATE INDEX idx_users_is_active ON users(is_active);
+
+-- Set verified_at for users who already have elevated roles
+UPDATE users
+SET verified_at = NOW(), verification_type = 'LEGACY'
+WHERE user_role IN ('VERIFIED', 'MODERATOR', 'ADMIN', 'SUPER_ADMIN');
 
 -- SETTINGS table for user and application settings
 CREATE TABLE settings (
@@ -137,10 +159,10 @@ create table songs (
     created_at timestamp not null default current_timestamp,
     updated_at timestamp not null default current_timestamp
 );
-CREATE INDEX idx_songs_title on songs(title);
-CREATE INDEX idx_songs_album_id on songs(album_id);
-CREATE INDEX idx_songs_isTitle on songs(isTitle);
-CREATE INDEX idx_songs_release_date on songs(release_date);
+create INDEX idx_songs_title on songs(title);
+create INDEX idx_songs_album_id on songs(album_id);
+create INDEX idx_songs_isTitle on songs(isTitle);
+create INDEX idx_songs_release_date on songs(release_date);
 
 -- SONG_MEMBERS junction table to track which members perform on which songs
 create table song_members (
@@ -148,18 +170,17 @@ create table song_members (
     member_id bigint not null references members(id),
     primary key (song_id, member_id)
 );
-CREATE INDEX idx_song_members_song_id on song_members(song_id);
-CREATE INDEX idx_song_members_member_id on song_members(member_id);
+create INDEX idx_song_members_song_id on song_members(song_id);
+create INDEX idx_song_members_member_id on song_members(member_id);
 
 -- MEMBER_ALBUMS junction table for solo works/collaborations
-create table member_albums (
-    member_id bigint not null references members(id),
-    album_id bigint not null references albums(id),
-    role varchar(50) not null, -- 'Main Artist', 'Featured Artist', 'Producer', etc.
-    primary key (member_id, album_id)
+create TABLE member_albums (
+  member_id BIGINT NOT NULL REFERENCES members(id),
+  album_id BIGINT NOT NULL REFERENCES albums(id),
+  PRIMARY KEY (member_id, album_id)
 );
-CREATE INDEX idx_member_albums_member_id on member_albums(member_id);
-CREATE INDEX idx_member_albums_album_id on member_albums(album_id);
+create INDEX idx_member_albums_member_id on member_albums(member_id);
+create INDEX idx_member_albums_album_id on member_albums(album_id);
 
 -- MUSIC_VIDEOS table to track official and unofficial music videos
 create table music_videos (
@@ -172,21 +193,26 @@ create table music_videos (
     created_at timestamp not null default current_timestamp,
     updated_at timestamp not null default current_timestamp
 );
-CREATE INDEX idx_music_videos_song_id on music_videos(song_id);
-CREATE INDEX idx_music_videos_type on music_videos(video_type);
+create INDEX idx_music_videos_song_id on music_videos(song_id);
+create INDEX idx_music_videos_type on music_videos(video_type);
 
 -- POSTS table
-create table posts (
-    id bigserial primary key,
-    user_id bigint not null references users(id),
-    content text not null,
-    image_path varchar(255),
-    created_at timestamp not null default current_timestamp,
-    updated_at timestamp not null default current_timestamp,
-    is_deleted boolean default false
+create TABLE posts (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    image_path VARCHAR(1000),
+    original_post_id BIGINT REFERENCES posts(id) ON DELETE SET NULL,
+    repost_comment VARCHAR(500),
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX idx_posts_user_id on posts(user_id);
-CREATE INDEX idx_posts_created_at on posts(created_at);
+CREATE INDEX idx_posts_user_id ON posts(user_id);
+CREATE INDEX idx_posts_created_at ON posts(created_at DESC);
+CREATE INDEX idx_posts_original_post_id ON posts(original_post_id);
+CREATE INDEX idx_posts_is_deleted ON posts(is_deleted);
+CREATE INDEX idx_posts_user_created ON posts(user_id, created_at DESC);
 
 -- COMMENTS table
 create table comments (
@@ -199,9 +225,9 @@ create table comments (
     updated_at timestamp not null default current_timestamp,
     is_deleted boolean default false
 );
-CREATE INDEX idx_comments_post_id on comments(post_id);
-CREATE INDEX idx_comments_user_id on comments(user_id);
-CREATE INDEX idx_comments_parent_id on comments(parent_comment_id);
+create INDEX idx_comments_post_id on comments(post_id);
+create INDEX idx_comments_user_id on comments(user_id);
+create INDEX idx_comments_parent_id on comments(parent_comment_id);
 
 -- FOLLOWS table
 create table follows (
@@ -210,8 +236,8 @@ create table follows (
     created_at timestamp not null default current_timestamp,
     primary key (follower_id, following_id)
 );
-CREATE INDEX idx_follows_follower on follows(follower_id);
-CREATE INDEX idx_follows_following on follows(following_id);
+create INDEX idx_follows_follower on follows(follower_id);
+create INDEX idx_follows_following on follows(following_id);
 
 -- REACTIONS table
 create table reactions (
@@ -221,7 +247,7 @@ create table reactions (
     created_at timestamp not null default current_timestamp,
     primary key (user_id, post_id)
 );
-CREATE INDEX idx_reactions_post_id on reactions(post_id);
+create INDEX idx_reactions_post_id on reactions(post_id);
 
 -- TAGS table
 create table tags (
@@ -229,7 +255,7 @@ create table tags (
     name VARCHAR(50) NOT NULL UNIQUE,
     created_at timestamp not null default current_timestamp
 );
-CREATE INDEX idx_tags_name on tags(name);
+create INDEX idx_tags_name on tags(name);
 
 -- POST_TAGS junction table
 create table post_tags (
@@ -237,8 +263,8 @@ create table post_tags (
     tag_id bigint not null references tags(id),
     primary key (post_id, tag_id)
 );
-CREATE INDEX idx_post_tags_post_id on post_tags(post_id);
-CREATE INDEX idx_post_tags_tag_id on post_tags(tag_id);
+create INDEX idx_post_tags_post_id on post_tags(post_id);
+create INDEX idx_post_tags_tag_id on post_tags(tag_id);
 
 -- USER_COLLECTIONS table
 create table user_collections (
@@ -249,7 +275,7 @@ create table user_collections (
     created_at timestamp not null default current_timestamp,
     primary key (user_id, album_id)
 );
-CREATE INDEX idx_collections_user_id on user_collections(user_id);
+create INDEX idx_collections_user_id on user_collections(user_id);
 
 -- EVENTS table
 create table events (
@@ -261,11 +287,18 @@ create table events (
     time_zone varchar(50) default 'UTC',
     event_type varchar(50) not null,
     created_by bigint references users(id),
+    is_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    verified_by BIGINT,
+    verified_at TIMESTAMP,
     created_at timestamp not null default current_timestamp,
-    updated_at timestamp not null default current_timestamp
+    updated_at timestamp not null default current_timestamp,
+    CONSTRAINT fk_events_verified_by FOREIGN KEY (verified_by) REFERENCES users(id)
 );
-CREATE INDEX idx_events_event_date on events(event_date);
-CREATE INDEX idx_events_event_type on events(event_type);
+create INDEX idx_events_event_date ON events(event_date);
+create INDEX idx_events_event_type ON events(event_type);
+create INDEX idx_events_is_verified ON events(is_verified);
+create INDEX idx_events_verified_by ON events(verified_by);
+create INDEX idx_events_verified_at ON events(verified_at);
 
 -- NOTIFICATIONS table
 create table notifications (
@@ -278,11 +311,7 @@ create table notifications (
     related_entity_type varchar(50),
     created_at timestamp not null default current_timestamp
 );
-CREATE INDEX idx_notifications_user_id on notifications(user_id);
-CREATE INDEX idx_notifications_is_read on notifications(is_read);
+create INDEX idx_notifications_user_id on notifications(user_id);
+create INDEX idx_notifications_is_read on notifications(is_read);
 
--- Create composite primary key type for user collections
-CREATE TYPE user_collection_id AS (
-    user_id BIGINT,
-    album_id BIGINT
-);
+

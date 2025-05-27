@@ -1,24 +1,39 @@
 package com.armycommunity.dto.response.post;
 
-import lombok.Getter;
-import lombok.Setter;
+import com.armycommunity.dto.response.user.UserSummaryResponse;
+import lombok.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
-@Getter
-@Setter
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class PostResponse {
     private Long id;
-    private Long userId;
-    private String username;
-    private String userProfileImage;
     private String content;
-    private String imagePath;
+    private List<String> imagePaths;
+    private List<TagResponse> tags;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private Long commentCount;
+    private UserSummaryResponse author;
+
+    // Engagement metrics
     private Long likeCount;
-    private boolean isLikedByCurrentUser;
-    private List<String> tags;
+    private Long commentCount;
+    private Long repostCount;
+
+    // User interaction status
+    private Boolean isLikedByUser;
+    private Boolean isRepostedByUser;
+
+    // Repost information
+    private Boolean isRepost;
+    private String repostComment;
+    private PostResponse originalPost;
+
+    // Moderation status
+    private Boolean isDeleted;
+    private Boolean needsModeration;
 }

@@ -11,7 +11,7 @@ import java.io.Serializable;
 
 /**
  * Entity representing the relationship between BTS members and albums.
- * Manages the many-to-many relationship between members and albums, including member roles in each album.
+ * Manages the many-to-many relationship between members and albums on each album.
  */
 @Data
 @NoArgsConstructor
@@ -31,9 +31,6 @@ public class MemberAlbum {
     @ManyToOne
     @JoinColumn(name = "album_id", nullable = false)
     private Album album;
-
-    @Column(name = "role", nullable = false)
-    private String role;
 
     /**
      * Composite key class for MemberAlbum entity.

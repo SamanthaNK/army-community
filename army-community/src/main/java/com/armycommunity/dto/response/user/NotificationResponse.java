@@ -9,10 +9,16 @@ import java.time.LocalDateTime;
 @Setter
 public class NotificationResponse {
     private Long id;
+    Long userId;
+    String username;
     private String type;
     private String message;
-    private boolean isRead;
+    private Boolean isRead;
     private Long relatedEntityId;
     private String relatedEntityType;
     private LocalDateTime createdAt;
+
+    public boolean isRecent() {
+        return createdAt != null && createdAt.isAfter(LocalDateTime.now().minusDays(1));
+    }
 }

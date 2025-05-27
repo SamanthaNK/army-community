@@ -4,8 +4,9 @@ import com.armycommunity.model.post.Reaction;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
-
+/**
+ * Repository interface for managing Reaction entities.
+ */
 @Repository
 public interface ReactionRepository extends JpaRepository<Reaction, Reaction.ReactionId> {
     boolean existsByUserIdAndPostId(Long userId, Long postId);
@@ -13,8 +14,4 @@ public interface ReactionRepository extends JpaRepository<Reaction, Reaction.Rea
     void deleteByUserIdAndPostId(Long userId, Long postId);
 
     long countByPostId(Long postId);
-
-    List<Reaction> findByPostId(Long postId);
-
-    List<Reaction> findByUserId(Long userId);
 }

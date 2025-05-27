@@ -10,13 +10,14 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 
+/**
+ * Repository interface for managing ActivityLog entities.
+ */
 @Repository
 public interface ActivityLogRepository extends JpaRepository<ActivityLog, Long> {
     Page<ActivityLog> findByUserId(Long userId, Pageable pageable);
 
     Page<ActivityLog> findByUserIdAndActionType(Long userId, String actionType, Pageable pageable);
-
-    Page<ActivityLog> findByActionType(String actionType, Pageable pageable);
 
     Page<ActivityLog> findByCreatedAtBetween(LocalDateTime start, LocalDateTime end, Pageable pageable);
 

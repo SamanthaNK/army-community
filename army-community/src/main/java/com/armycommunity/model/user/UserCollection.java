@@ -12,6 +12,10 @@ import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+/**
+ * Entity representing a user's collection of albums.
+ * This is a many-to-many relationship between users and albums.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -41,6 +45,10 @@ public class UserCollection {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    /**
+     * Composite key class for UserCollection entity.
+     * Contains user and album IDs to form a unique identifier for the collection.
+     */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor

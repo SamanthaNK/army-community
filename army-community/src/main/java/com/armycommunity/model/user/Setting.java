@@ -10,6 +10,11 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
+/**
+ * Entity representing user settings.
+ * Defines various user-specific settings such as theme, notifications, etc.
+ * The table is designed to allow multiple settings per user, with unique constraints on the combination of user ID and setting key.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

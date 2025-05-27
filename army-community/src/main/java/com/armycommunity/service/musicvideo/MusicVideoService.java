@@ -2,8 +2,6 @@ package com.armycommunity.service.musicvideo;
 
 import com.armycommunity.dto.request.song.MusicVideoRequest;
 import com.armycommunity.dto.response.song.MusicVideoResponse;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 
@@ -20,5 +18,9 @@ public interface MusicVideoService {
 
     List<MusicVideoResponse> getMusicVideosByType(String videoType);
 
-    Page<MusicVideoResponse> getAllMusicVideos(Pageable pageable);
+    List<MusicVideoResponse> getAllMusicVideos();
+
+    Boolean existsById(Long id);
+
+    Long countBySongId(Long songId);
 }

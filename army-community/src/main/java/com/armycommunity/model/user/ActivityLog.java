@@ -9,6 +9,10 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 
+/**
+ * Entity representing an activity logs for a user.
+ * This log captures various actions performed by the user within the application.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

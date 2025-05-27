@@ -10,13 +10,13 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 public interface MemberService {
-    MemberDetailResponse createMember(MemberRequest request, MultipartFile profileImage);
+    MemberDetailResponse createMember(MemberRequest request);
 
     MemberDetailResponse getMemberById(Long memberId);
 
     MemberDetailResponse getMemberByStageName(String stageName);
 
-    MemberDetailResponse updateMember(Long memberId, MemberRequest request, MultipartFile profileImage);
+    MemberDetailResponse updateMember(Long memberId, MemberRequest request);
 
     void deleteMember(Long memberId);
 

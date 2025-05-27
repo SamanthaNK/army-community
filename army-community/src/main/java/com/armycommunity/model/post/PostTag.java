@@ -8,6 +8,10 @@ import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 
+/**
+ * Entity representing the relationship between posts and tags.
+ * Manages the many-to-many relationship between posts and tags.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -27,6 +31,10 @@ public class PostTag {
     @JoinColumn(name = "tag_id", nullable = false)
     private Tag tag;
 
+    /**
+     * Composite key class for PostTag entity.
+     * Contains post and tag IDs to form a unique identifier for the relationship.
+     */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor

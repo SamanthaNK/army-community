@@ -3,30 +3,31 @@ package com.armycommunity.service.user;
 
 import com.armycommunity.dto.request.user.UserRegistrationRequest;
 import com.armycommunity.dto.request.user.UserUpdateRequest;
-import com.armycommunity.dto.response.user.UserProfileResponse;
+import com.armycommunity.dto.response.user.UserDetailResponse;
+import com.armycommunity.dto.response.user.UserRoleStatistics;
+import com.armycommunity.dto.response.user.UserSummaryResponse;
 import com.armycommunity.model.user.User;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import com.armycommunity.model.user.UserRole;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 public interface UserService {
-    User registerUser(UserRegistrationRequest request);
+    UserDetailResponse registerUser(UserRegistrationRequest request);
 
-    UserProfileResponse getUserProfile(Long userId);
+    UserDetailResponse getUserProfile(Long userId);
 
-    UserProfileResponse getUserProfileByUsername(String username);
+    UserDetailResponse getUserProfileByUsername(String username, Long currentUserId);
 
-    User updateUser(Long userId, UserUpdateRequest request);
+    UserDetailResponse updateUser(Long userId, UserUpdateRequest request);
 
-    User updateUserProfileImage(Long userId, MultipartFile imageFile) throws IOException;
+    String updateUserProfileImage(Long userId, MultipartFile imageFile);
 
     void deleteUser(Long userId);
 
-    Page<UserProfileResponse> searchUsers(String keyword, Pageable pageable);
+    List<UserSummaryResponse> searchUsers(String query);
 
     boolean existsByUsername(String username);
 
@@ -34,11 +35,35 @@ public interface UserService {
 
     Optional<User> findById(Long id);
 
-    Optional<User> findByUsername(String username);
+    User findByUsername(String username);
 
-    Optional<User> findByEmail(String email);
+    User findByEmail(String email);
+
+    List<UserSummaryResponse> getUsersByRole(UserRole role);
+
+    List<UserSummaryResponse> getVerifiedUsers();
 
     User saveUser(User user);
 
-    List<UserProfileResponse> getRecentlyActiveUsers(int limit);
+    List<UserSummaryResponse> getRecentlyActiveUsers(int limit);
+
+    void promoteUser(Long userId, UserRole newRole, Long promotedBy);
+
+    void verifyUser(Long userId, String verificationType, Long verifiedBy);
+
+    void demoteUser(Long userId, UserRole newRole, String reason, Long demotedBy);
+
+    void suspendUser(Long userId, String reason, LocalDateTime suspendUntil, Long suspendedBy);
+
+    void unsuspendUser(Long userId, Long unsuspendedBy);
+
+    List<UserSummaryResponse> getModerators();
+
+    List<UserSummaryResponse> getSuspendedUsers();
+
+    List<UserSummaryResponse> getUsersNeedingModeration();
+
+    UserRoleStatistics getRoleStatistics();
+
+    void processExpiredSuspensions();
 }

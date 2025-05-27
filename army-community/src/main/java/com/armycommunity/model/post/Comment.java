@@ -13,6 +13,9 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * Entity representing a user's comment to a post.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -36,7 +39,7 @@ public class Comment {
     @JoinColumn(name = "parent_comment_id")
     private Long parentCommentId;
 
-    @OneToMany(mappedBy = "parentComment", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "parentCommentId", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Comment> replies = new HashSet<>();
 
     @Column(nullable = false)

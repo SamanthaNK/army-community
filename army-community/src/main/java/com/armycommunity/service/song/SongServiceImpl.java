@@ -4,6 +4,7 @@ import com.armycommunity.dto.request.song.SongRequest;
 import com.armycommunity.dto.response.member.MemberSummaryResponse;
 import com.armycommunity.dto.response.song.SongDetailResponse;
 import com.armycommunity.dto.response.song.SongSummaryResponse;
+import com.armycommunity.exception.DuplicateResourceException;
 import com.armycommunity.exception.ResourceNotFoundException;
 import com.armycommunity.mapper.SongMapper;
 import com.armycommunity.model.album.Album;
@@ -15,17 +16,21 @@ import com.armycommunity.repository.member.MemberRepository;
 import com.armycommunity.repository.song.SongMemberRepository;
 import com.armycommunity.repository.song.SongRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class SongServiceImpl implements SongService {
 
     private final SongRepository songRepository;
@@ -37,177 +42,265 @@ public class SongServiceImpl implements SongService {
     @Override
     @Transactional
     public SongDetailResponse createSong(SongRequest request) {
-        // Find the album if specified
-        Album album = null;
+        log.info("Creating new song with title: {}", request.getTitle());
+
+        // Check for duplicate song in the same album
         if (request.getAlbumId() != null) {
-            album = albumRepository.findById(request.getAlbumId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Album not found with id: " + request.getAlbumId()));
-        }
-
-        // Create the song entity
-        Song song = songMapper.toEntity(request);
-        song.setAlbum(album);
-        Song savedSong = songRepository.save(song);
-
-        // Associate members with the song if provided
-        if (request.getMemberIds() != null && !request.getMemberIds().isEmpty()) {
-            for (Long memberId : request.getMemberIds()) {
-                Member member = memberRepository.findById(memberId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Member not found with id: " + memberId));
-
-                SongMember songMember = new SongMember();
-                songMember.setSong(savedSong);
-                songMember.setMember(member);
-                songMemberRepository.save(songMember);
+            boolean exists = songRepository.existsByTitleAndAlbumId(request.getTitle(), request.getAlbumId());
+            if (exists) {
+                throw new DuplicateResourceException("Song with title '" + request.getTitle() + "' already exists in this album");
             }
         }
 
-        return getSongById(savedSong.getId());
+        Song song = songMapper.toEntity(request);
+
+        // Set album if provided
+        if (request.getAlbumId() != null) {
+            Album album = albumRepository.findById(request.getAlbumId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Album not found with ID: " + request.getAlbumId()));
+            song.setAlbum(album);
+        }
+
+        Song savedSong = songRepository.save(song);
+        log.info("Successfully created song with ID: {}", savedSong.getId());
+
+        // Associate members with the song
+        if (request.getMemberIds() != null && !request.getMemberIds().isEmpty()) {
+            associateMembersWithSong(savedSong, request.getMemberIds());
+        }
+
+        return songMapper.toDetailResponse(savedSong);
     }
 
     @Override
     @Transactional(readOnly = true)
     public SongDetailResponse getSongById(Long songId) {
+        log.debug("Retrieving song with ID: {}", songId);
+
         Song song = songRepository.findById(songId)
-                .orElseThrow(() -> new ResourceNotFoundException("Song not found with id: " + songId));
+                .orElseThrow(() -> new ResourceNotFoundException("Song not found with ID: " + songId));
 
-        SongDetailResponse response = songMapper.toDetailResponse(song);
-
-        // Add members who performed on the song
-        List<Member> members = memberRepository.findBySongId(songId);
-        response.setMembers(members.stream()
-                .map(member -> {
-                    MemberSummaryResponse memberResponse = new MemberSummaryResponse();
-                    memberResponse.setId(member.getId());
-                    memberResponse.setStageName(member.getStageName());
-                    // Set other required fields from Member to MemberSummaryResponse
-                    return memberResponse;
-                })
-                .collect(Collectors.toList()));
-
-        // Add music videos for the song
-        // This will be handled by MusicVideoService, so we'll leave it empty for now
-        response.setMusicVideos(new ArrayList<>());
-
-        return response;
+        log.debug("Successfully retrieved song: {}", song.getTitle());
+        return songMapper.toDetailResponse(song);
     }
 
     @Override
     @Transactional
     public SongDetailResponse updateSong(Long songId, SongRequest request) {
-        Song song = songRepository.findById(songId)
-                .orElseThrow(() -> new ResourceNotFoundException("Song not found with id: " + songId));
+        log.info("Updating song with ID: {}", songId);
 
-        // Update album if changed
-        if (request.getAlbumId() != null &&
-                (song.getAlbum() == null || !request.getAlbumId().equals(song.getAlbum().getId()))) {
-            Album album = albumRepository.findById(request.getAlbumId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Album not found with id: " + request.getAlbumId()));
-            song.setAlbum(album);
-        }
+        Song existingSong = songRepository.findById(songId)
+                .orElseThrow(() -> new ResourceNotFoundException("Song not found with ID: " + songId));
 
-        songMapper.updateEntity(request, song);
-        Song updatedSong = songRepository.save(song);
-
-        // Update member associations if provided
-        if (request.getMemberIds() != null) {
-            // Remove existing associations
-            songMemberRepository.deleteBySongId(songId);
-
-            // Add new associations
-            for (Long memberId : request.getMemberIds()) {
-                Member member = memberRepository.findById(memberId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Member not found with id: " + memberId));
-
-                SongMember songMember = new SongMember();
-                songMember.setSong(updatedSong);
-                songMember.setMember(member);
-                songMemberRepository.save(songMember);
+        // Check for duplicate title in same album (excluding current song)
+        if (request.getAlbumId() != null && !request.getTitle().equals(existingSong.getTitle())) {
+            boolean exists = songRepository.existsByTitleAndAlbumIdAndIdNot(
+                    request.getTitle(), request.getAlbumId(), songId);
+            if (exists) {
+                throw new DuplicateResourceException("Song with title '" + request.getTitle() + "' already exists in this album");
             }
         }
 
-        return getSongById(updatedSong.getId());
+        songMapper.updateSongFromRequest(request, existingSong);
+
+        // Update album association if changed
+        if (request.getAlbumId() != null &&
+                (existingSong.getAlbum() == null || !existingSong.getAlbum().getId().equals(request.getAlbumId()))) {
+            Album album = albumRepository.findById(request.getAlbumId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Album not found with ID: " + request.getAlbumId()));
+            existingSong.setAlbum(album);
+            log.debug("Updated song album association to: {}", album.getTitle());
+        }
+
+        Song updatedSong = songRepository.save(existingSong);
+        log.info("Successfully updated song with ID: {}", songId);
+
+        // Update member associations
+        if (request.getMemberIds() != null) {
+            updateSongMemberAssociations(updatedSong, request.getMemberIds());
+        }
+
+        return songMapper.toDetailResponse(updatedSong);
     }
 
     @Override
     @Transactional
     public void deleteSong(Long songId) {
-        if (!songRepository.existsById(songId)) {
-            throw new ResourceNotFoundException("Song not found with id: " + songId);
-        }
+        log.info("Deleting song with ID: {}", songId);
 
-        // Remove member associations
+        Song song = songRepository.findById(songId)
+                .orElseThrow(() -> new ResourceNotFoundException("Song not found with ID: " + songId));
+
+        // Remove member associations first
         songMemberRepository.deleteBySongId(songId);
 
-        // Delete the song
-        songRepository.deleteById(songId);
+        songRepository.delete(song);
+        log.info("Successfully deleted song: {}", song.getTitle());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<SongSummaryResponse> getSongsByAlbum(Long albumId) {
+        log.debug("Retrieving songs for album with ID: {}", albumId);
+
         if (!albumRepository.existsById(albumId)) {
             throw new ResourceNotFoundException("Album not found with id: " + albumId);
         }
 
         List<Song> songs = songRepository.findByAlbumId(albumId);
-        return songs.stream()
-                .map(songMapper::toSummaryResponse)
-                .collect(Collectors.toList());
+        log.debug("Found {} songs for album ID: {}", songs.size(), albumId);
+
+        return songMapper.toSummaryResponseList(songs);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<SongSummaryResponse> getTitleTracks() {
+        log.debug("Retrieving all title tracks");
+
         List<Song> titleTracks = songRepository.findByIsTitleTrue();
-        return titleTracks.stream()
-                .map(songMapper::toSummaryResponse)
-                .collect(Collectors.toList());
+        log.debug("Found {} title tracks", titleTracks.size());
+
+        return songMapper.toSummaryResponseList(titleTracks);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<SongSummaryResponse> getSongsByMember(Long memberId) {
+        log.debug("Retrieving songs for member ID: {}", memberId);
+
         if (!memberRepository.existsById(memberId)) {
-            throw new ResourceNotFoundException("Member not found with id: " + memberId);
+            throw new ResourceNotFoundException("Member not found with ID: " + memberId);
         }
 
         List<Song> songs = songRepository.findSongsByMemberId(memberId);
-        return songs.stream()
-                .map(songMapper::toSummaryResponse)
-                .collect(Collectors.toList());
+        log.debug("Found {} songs for member ID: {}", songs.size(), memberId);
+
+        return songMapper.toSummaryResponseList(songs);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<SongSummaryResponse> getSongsByLanguage(String language) {
+        log.debug("Retrieving songs by language: {}", language);
+
         List<Song> songs = songRepository.findByLanguage(language);
-        return songs.stream()
-                .map(songMapper::toSummaryResponse)
-                .collect(Collectors.toList());
+        log.debug("Found {} songs in language: {}", songs.size(), language);
+
+        return songMapper.toSummaryResponseList(songs);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Page<SongSummaryResponse> searchSongs(String keyword, Pageable pageable) {
-        Page<Song> songs = songRepository.searchSongs(keyword, pageable);
-        return songs.map(songMapper::toSummaryResponse);
+    public Page<SongSummaryResponse> searchSongs(String query, Pageable pageable) {
+        log.debug("Searching songs with query: {}", query);
+
+        Page<Song> songPage = songRepository.searchSongs(query, pageable);
+        log.debug("Found {} songs matching query: {}", songPage.getTotalElements(), query);
+        return songPage.map(songMapper::toSummaryResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SongSummaryResponse> getSongsByArtist(String artist) {
+        log.debug("Retrieving songs by artist: {}", artist);
+
+        List<Song> songs = songRepository.findByArtistContainingIgnoreCase(artist);
+        log.debug("Found {} songs by artist: {}", songs.size(), artist);
+
+        return songMapper.toSummaryResponseList(songs);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SongSummaryResponse> getSongsByReleaseType(String releaseType) {
+        log.debug("Retrieving songs by release type: {}", releaseType);
+
+        List<Song> songs = songRepository.findByReleaseType(releaseType);
+        log.debug("Found {} songs with release type: {}", songs.size(), releaseType);
+
+        return songMapper.toSummaryResponseList(songs);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SongSummaryResponse> getFeaturingSongs() {
+        log.debug("Retrieving songs where BTS members feature");
+
+        // Songs where BTS members participate but BTS is not the main artist
+        List<Song> songs = songRepository.findFeaturingSongs();
+        log.debug("Found {} featuring songs", songs.size());
+
+        return songMapper.toSummaryResponseList(songs);
     }
 
     @Override
     @Transactional
     public Song findOrCreateSong(SongRequest request) {
-        // Try to find an existing song with the same title and album
-        if (request.getAlbumId() != null && request.getTitle() != null) {
-            List<Song> existingSongs = songRepository.findByAlbumId(request.getAlbumId());
-            for (Song song : existingSongs) {
-                if (song.getTitle().equalsIgnoreCase(request.getTitle())) {
-                    return song;
-                }
-            }
+        log.debug("Finding or creating song with title: {}", request.getTitle());
+
+        Song existingSong = songRepository.findByTitleAndArtist(request.getTitle(), request.getArtist())
+                .orElse(null);
+
+        if (existingSong != null) {
+            log.debug("Found existing song: {}", existingSong.getTitle());
+            return existingSong;
         }
 
-        // If not found, create a new song
-        return songRepository.save(songMapper.toEntity(request));
+        // Create new song
+        log.debug("Creating new song as it doesn't exist");
+        SongDetailResponse response = createSong(request);
+        return songRepository.findById(response.getId()).orElseThrow();
+    }
+
+    // Helper methods
+
+    private void associateMembersWithSong(Song song, List<Long> memberIds) {
+        log.debug("Associating {} members with song: {}", memberIds.size(), song.getTitle());
+
+        try {
+            Set<SongMember> songMembers = new HashSet<>();
+
+            for (Long memberId : memberIds) {
+                Member member = memberRepository.findById(memberId)
+                        .orElseThrow(() -> {
+                            log.error("Member not found with ID: {}", memberId);
+                            return new ResourceNotFoundException("Member not found with ID: " + memberId);
+                        });
+
+                SongMember songMember = new SongMember();
+                songMember.setSong(song);
+                songMember.setMember(member);
+                songMembers.add(songMember);
+
+                log.debug("Associated member {} with song {}", member.getStageName(), song.getTitle());
+            }
+
+            song.setSongMembers(songMembers);
+            log.info("Successfully associated {} members with song: {}", memberIds.size(), song.getTitle());
+
+        } catch (Exception e) {
+            log.error("Error associating members with song: {}", song.getTitle(), e);
+            throw e;
+        }
+    }
+
+    private void updateSongMemberAssociations(Song song, List<Long> memberIds) {
+        log.debug("Updating member associations for song: {}", song.getTitle());
+
+        try {
+            // Remove existing associations
+            songMemberRepository.deleteBySongId(song.getId());
+            log.debug("Removed existing member associations for song: {}", song.getTitle());
+
+            // Add new associations
+            if (!memberIds.isEmpty()) {
+                associateMembersWithSong(song, memberIds);
+            }
+
+        } catch (Exception e) {
+            log.error("Error updating member associations for song: {}", song.getTitle(), e);
+            throw e;
+        }
     }
 }

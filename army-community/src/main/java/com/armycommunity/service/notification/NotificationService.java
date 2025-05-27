@@ -1,19 +1,35 @@
 package com.armycommunity.service.notification;
 
+import com.armycommunity.dto.request.user.NotificationRequest;
 import com.armycommunity.dto.response.user.NotificationResponse;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+
+import java.util.List;
 
 public interface NotificationService {
-    public void createNotification(Long userId, String type, String message, Long relatedEntityId, String relatedEntityType);
 
-    Page<NotificationResponse> getUserNotifications(Long userId, Pageable pageable);
+    public NotificationResponse createNotification(NotificationRequest request);
 
-    Integer getUnreadNotificationCount(Long userId);
+    List<NotificationResponse> getUserNotifications(Long userId);
 
-    void markAsRead(Long notificationId);
+    List<NotificationResponse> getUnreadNotifications(Long userId);
+
+    Long getUnreadNotificationCount(Long userId);
+
+    void markAsRead(Long notificationId, Long userId);
 
     void markAllAsRead(Long userId);
 
-    void deleteNotification(Long notificationId);
+    void deleteNotification(Long notificationId, Long userId);
+
+    void deleteAllUserNotifications(Long userId);
+
+    void createLikeNotification(Long postOwnerId, Long likerId, Long postId, String likerUsername);
+
+    void createCommentNotification(Long postOwnerId, Long commenterId, Long postId, String commenterUsername);
+
+    void createFollowNotification(Long followedUserId, Long followerId, String followerUsername);
+
+    void createEventReminderNotification(Long userId, Long eventId, String eventTitle);
+
+    void createRepostNotification(Long postOwnerId, Long reposterId, Long postId, String reposterUsername);
 }

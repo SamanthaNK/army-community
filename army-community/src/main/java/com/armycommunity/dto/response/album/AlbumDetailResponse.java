@@ -1,37 +1,32 @@
 package com.armycommunity.dto.response.album;
 
+import com.armycommunity.dto.response.member.MemberSummaryResponse;
 import com.armycommunity.dto.response.song.SongSummaryResponse;
-import lombok.Getter;
-import lombok.Setter;
+import com.armycommunity.model.album.AlbumType;
+import lombok.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 
-@Getter
-@Setter
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class AlbumDetailResponse {
-    // From albums table
     private Long id;
     private String title;
     private String koreanTitle;
-    private String albumType;
+    private AlbumType albumType;
     private LocalDate releaseDate;
+    private EraSummaryResponse era;
     private String artist;
-    private boolean isOfficial;
+    private Boolean isOfficial;
     private String coverImagePath;
     private String description;
+    private List<SongSummaryResponse> songs;
+    private List<MemberSummaryResponse> members;
+    private Integer collectionCount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-
-    private Long eraId;
-    private String eraName;
-
-    private List<SongSummaryResponse> songs;
-    private Map<String, String> memberCredits;  // From member_albums table (member -> role)
-    private int songCount;
-    private int totalDuration;  // in seconds
-    private int collectionCount;  // from user_collections table count
-
 }

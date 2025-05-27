@@ -1,27 +1,42 @@
 package com.armycommunity.dto.request.user;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Size;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
+import org.springframework.web.multipart.MultipartFile;
 
-@Getter
-@Setter
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class UserUpdateRequest {
-    @Size(min = 3, max = 50, message = "Username must be between 3 and 50 characters")
-    private String username;
-
-    @Email(message = "Invalid email format")
+    @Email(message = "Please provide a valid email address")
+    @Size(max = 100, message = "Email must not exceed 100 characters")
     private String email;
 
-    @Size(min = 8, message = "Password must be at least 8 characters long")
-    private String password;
-
-    @Size(max = 1000, message = "Bio cannot exceed 1000 characters")
+    @Size(max = 500, message = "Bio must not exceed 500 characters")
     private String bio;
 
-    private String profileImagePath;
-
+    @Size(max = 10, message = "Language preference must not exceed 10 characters")
     private String languagePreference;
-    private String timeZone;
+
+    @Size(max = 50, message = "Timezone must not exceed 50 characters")
+    private String timezone;
+
+    private MultipartFile profileImage;
+
+    @Size(min = 8, max = 100, message = "Password must be between 8 and 100 characters")
+    private String currentPassword;
+
+    @Size(min = 8, max = 100, message = "New password must be between 8 and 100 characters")
+    private String newPassword;
+
+    private String confirmNewPassword;
+
+    @AssertTrue(message = "Passwords do not match")
+    public boolean isPasswordMatching() {
+        if (newPassword == null) return true; // Password update is optional
+        return newPassword.equals(confirmNewPassword);
+    }
 }

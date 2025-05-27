@@ -4,15 +4,15 @@ import com.armycommunity.model.member.MemberLine;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 import java.time.LocalDate;
 import java.util.Set;
 
-
-@Getter
-@Setter
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class MemberRequest {
     @NotBlank(message = "Stage name is required")
     @Size(max = 50, message = "Stage name cannot exceed 50 characters")
@@ -27,6 +27,8 @@ public class MemberRequest {
 
     @Size(max = 100, message = "Position cannot exceed 100 characters")
     private String position;
+
+    private String profileImagePath;
 
     private Set<MemberLine> lineTypes;
 }

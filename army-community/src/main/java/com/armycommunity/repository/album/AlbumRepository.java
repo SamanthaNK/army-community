@@ -12,6 +12,9 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Repository interface for managing Album entities.
+ */
 @Repository
 public interface AlbumRepository extends JpaRepository<Album, Long> {
     List<Album> findByAlbumType(AlbumType albumType);
@@ -25,5 +28,5 @@ public interface AlbumRepository extends JpaRepository<Album, Long> {
     Optional<Album> findByTitleAndArtist(String title, String artist);
 
     @Query("SELECT a FROM Album a WHERE a.title LIKE %?1% OR a.koreanTitle LIKE %?1%")
-    Page<Album> searchAlbums(String keyword, Pageable pageable);
+    List<Album> searchAlbums(String query);
 }

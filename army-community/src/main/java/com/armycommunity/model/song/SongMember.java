@@ -9,6 +9,10 @@ import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 
+/**
+ * Entity representing the relationship between BTS members and songs.
+ * Manages the many-to-many relationship between members and songs, including member roles in each song.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -28,6 +32,10 @@ public class SongMember {
     @JoinColumn(name = "member_id", nullable = false)
     private Member member;
 
+    /**
+     * Composite key class for SongMember entity.
+     * Contains song and member IDs to form a unique identifier for the relationship.
+     */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor

@@ -1,30 +1,37 @@
 package com.armycommunity.dto.response.song;
 
+import com.armycommunity.dto.response.album.AlbumSummaryResponse;
 import com.armycommunity.dto.response.member.MemberSummaryResponse;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
-@Getter
-@Setter
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class SongDetailResponse {
     private Long id;
     private String title;
     private String koreanTitle;
-    private Long albumId;
-    private String albumTitle;
-    private String albumCoverImagePath;
-    private Integer trackNumber;
     private Integer duration;
-    private boolean isTitle;
-    private String language;
-    private List<String> featuringArtist;
-    private LocalDate releaseDate;
+    private Integer trackNumber;
+    private Boolean isTitle;
     private String lyrics;
+    private String language;
+    private String[] featuringArtist;
+    private LocalDate releaseDate;
+    private String releaseType;
     private String artist;
     private String url;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    private AlbumSummaryResponse album;
     private List<MemberSummaryResponse> members;
     private List<MusicVideoResponse> musicVideos;
+    private String formattedDuration; // MM:SS format
+    private Boolean isBTSOfficial;
+    private Boolean hasFeatures;
 }

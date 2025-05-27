@@ -9,7 +9,10 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 
-
+/**
+ * Entity representing notifications for users.
+ * This can include various types of notifications such as likes, comments, etc.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

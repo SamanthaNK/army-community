@@ -1,12 +1,14 @@
 package com.armycommunity.dto.response.song;
 
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
-@Getter
-@Setter
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class MusicVideoResponse {
     private Long id;
     private Long songId;
@@ -17,4 +19,6 @@ public class MusicVideoResponse {
     private LocalDate releaseDate;
     private String videoType;
     private String url;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }

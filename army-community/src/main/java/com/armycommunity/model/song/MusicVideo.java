@@ -11,6 +11,9 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+/**
+ * Entity representing a BTS music video.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

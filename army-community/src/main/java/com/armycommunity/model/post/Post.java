@@ -13,6 +13,9 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * Entity representing a post made by a user.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -28,10 +31,10 @@ public class Post {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(nullable = false)
+    @Column(name = "content", nullable = false, length = 5000)
     private String content;
 
-    @Column(name = "image_path")
+    @Column(name = "image_path", length = 1000)
     private String imagePath;
 
     @CreationTimestamp
@@ -45,13 +48,25 @@ public class Post {
     @Column(name = "is_deleted", nullable = false)
     private Boolean isDeleted = false; // Default to not deleted
 
-    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    // Repost functionality
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "original_post_id")
+    private Post originalPost;
+
+    @Column(name = "repost_comment", length = 500)
+    private String repostComment;
+
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<Comment> comments = new HashSet<>();
 
-    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<Reaction> reactions = new HashSet<>();
 
-    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<PostTag> tags = new HashSet<>();
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Set<PostTag> postTags = new HashSet<>();
 
+    // Self-referencing relationship for reposts
+    @OneToMany(mappedBy = "originalPost", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @Builder.Default
+    private Set<Post> reposts = new HashSet<>();
 }

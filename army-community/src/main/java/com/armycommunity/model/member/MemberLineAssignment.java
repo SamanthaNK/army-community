@@ -6,6 +6,10 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * Entity representing the assignment of members to different lines.
+ * Manages the many-to-many relationship between members and their roles within the group.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

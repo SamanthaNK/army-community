@@ -7,6 +7,9 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Repository interface for managing Setting entities.
+ */
 @Repository
 public interface SettingRepository extends JpaRepository<Setting, Long> {
     List<Setting> findByUserId(Long userId);

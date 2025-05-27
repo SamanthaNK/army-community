@@ -2,41 +2,73 @@ package com.armycommunity.mapper;
 
 import com.armycommunity.dto.request.post.CommentRequest;
 import com.armycommunity.dto.response.post.CommentResponse;
+import com.armycommunity.dto.response.user.UserSummaryResponse;
 import com.armycommunity.model.post.Comment;
 import com.armycommunity.model.post.Post;
 import com.armycommunity.model.user.User;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
-import org.mapstruct.NullValuePropertyMappingStrategy;
+import org.mapstruct.*;
 
-@Mapper(componentModel = "spring",
-        nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE,
-        uses = {UserMapper.class})
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+/**
+ * Mapper interface for converting between Comment entities and DTOs.
+ * This interface uses MapStruct to generate the implementation at compile time.
+ * It defines methods for converting CommentRequest to Comment entity,
+ * Comment entity to CommentResponse, and vice versa.
+ */
+@Mapper(componentModel = "spring", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
 public interface CommentMapper {
 
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "user", source = "user")
-    @Mapping(target = "post", source = "post")
-    @Mapping(target = "parentCommentId", ignore = true)
+    @Mapping(target = "post", ignore = true)
+    @Mapping(target = "user", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    @Mapping(target = "isDeleted", constant = "false")
+    @Mapping(target = "isDeleted", ignore = true)
+    @Mapping(target = "replies", ignore = true)
+    @Mapping(target = "parentCommentId", ignore = true)
     Comment toEntity(CommentRequest request, User user, Post post);
 
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "user", ignore = true)
-    @Mapping(target = "post", ignore = true)
-    @Mapping(target = "parentCommentId", ignore = true)
-    @Mapping(target = "createdAt", ignore = true)
-    @Mapping(target = "isDeleted", ignore = true)
-    void updateEntity(CommentRequest request, @MappingTarget Comment comment);
-
-    @Mapping(target = "userId", source = "user.id")
-    @Mapping(target = "username", source = "user.username")
-    @Mapping(target = "userProfileImage", source = "user.profileImagePath")
+    @Mapping(target = "user", source = "user", qualifiedByName = "userToUserSummaryResponse")
     @Mapping(target = "postId", source = "post.id")
-    @Mapping(target = "replyCount", ignore = true)
-    @Mapping(target = "replies", ignore = true)
+    @Mapping(target = "replies", source = "replies", qualifiedByName = "commentSetToCommentResponseList")
     CommentResponse toResponse(Comment comment);
+
+    List<CommentResponse> toResponseList(List<Comment> comments);
+
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "post", ignore = true)
+    @Mapping(target = "user", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "isDeleted", ignore = true)
+    @Mapping(target = "replies", ignore = true)
+    @Mapping(target = "parentCommentId", ignore = true)
+    void updateCommentFromRequest(CommentRequest request, @MappingTarget Comment comment);
+
+    @Named("userToUserSummaryResponse")
+    default UserSummaryResponse userToUserSummaryResponse(User user) {
+        if (user == null) {
+            return null;
+        }
+        return UserSummaryResponse.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .profileImagePath(user.getProfileImagePath())
+                .build();
+    }
+
+    @Named("commentSetToCommentResponseList")
+    default List<CommentResponse> commentSetToCommentResponseList(Set<Comment> comments) {
+        if (comments == null || comments.isEmpty()) {
+            return List.of();
+        }
+
+        return comments.stream()
+                .filter(comment -> !comment.getIsDeleted())
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
 }

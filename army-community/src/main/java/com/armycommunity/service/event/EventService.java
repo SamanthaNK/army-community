@@ -2,10 +2,8 @@ package com.armycommunity.service.event;
 
 import com.armycommunity.dto.request.post.EventRequest;
 import com.armycommunity.dto.response.post.EventResponse;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface EventService {
@@ -19,11 +17,19 @@ public interface EventService {
 
     List<EventResponse> getUpcomingEvents(int limit);
 
-    List<EventResponse> getEventsByDateRange(LocalDate startDate, LocalDate endDate);
+    List<EventResponse> getEventsByDateRange(LocalDateTime startDate, LocalDateTime endDate);
 
     List<EventResponse> getEventsByType(String eventType);
 
-    Page<EventResponse> getUserEvents(Long userId, Pageable pageable);
+    List<EventResponse> getVerifiedEvents();
 
-    Page<EventResponse> getAllEvents(Pageable pageable);
+    List<EventResponse> getPendingVerificationEvents();
+
+    List<EventResponse> getUserEvents(Long userId);
+
+    List<EventResponse> getAllEvents();
+
+    EventResponse verifyEvent(Long eventId, Long verifierId);
+
+    Long getPendingVerificationCount();
 }

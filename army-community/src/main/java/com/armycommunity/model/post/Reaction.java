@@ -11,6 +11,10 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
+/**
+ * Entity representing a reaction (like, dislike, love, etc.) to a post.
+ * This is a many-to-many relationship between users and posts.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -37,6 +41,10 @@ public class Reaction {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    /**
+     * Composite key class for Reaction entity.
+     * Contains user and post IDs to form a unique identifier for the reaction.
+     */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor

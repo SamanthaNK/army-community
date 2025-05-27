@@ -9,6 +9,9 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Repository interface for managing Member entities.
+ */
 @Repository
 public interface MemberRepository extends JpaRepository<Member, Long> {
     Optional<Member> findByStageName(String stageName);

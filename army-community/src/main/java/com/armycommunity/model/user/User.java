@@ -52,8 +52,21 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    @Column(nullable = false, length = 50)
-    private String role = "USER";
+    @Enumerated(EnumType.STRING)
+    @Column(name = "user_role", nullable = false)
+    private UserRole userRole = UserRole.USER; // Default role
+
+    @Column(name = "verified_at")
+    private LocalDateTime verifiedAt;
+
+    @Column(name = "verification_type")
+    private String verificationType; // e.g., "MANUAL", "SOCIAL_MEDIA", "OFFICIAL"
+
+    @Column(name = "suspended_until")
+    private LocalDateTime suspendedUntil;
+
+    @Column(name = "suspension_reason")
+    private String suspensionReason;
 
     @Column(name = "language_preference", length = 10)
     private String languagePreference = "en"; // Default to English
@@ -93,4 +106,28 @@ public class User {
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Notification> notifications = new HashSet<>();
+
+    public boolean hasRole(UserRole role) {
+        return this.userRole == role;
+    }
+
+    public boolean hasMinimumRole(UserRole minimumRole) {
+        return this.userRole.hasPermissionLevel(minimumRole);
+    }
+
+    public boolean isVerified() {
+        return this.userRole.hasPermissionLevel(UserRole.VERIFIED);
+    }
+
+    public boolean canModerate() {
+        return this.userRole.canModerateContent();
+    }
+
+    public boolean isSuspended() {
+        return !this.isActive || (this.suspendedUntil != null && LocalDateTime.now().isBefore(this.suspendedUntil));
+    }
+
+    public boolean canCreateVerifiedEvents() {
+        return this.userRole.canCreateVerifiedEvents();
+    }
 }

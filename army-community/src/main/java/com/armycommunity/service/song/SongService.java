@@ -26,7 +26,13 @@ public interface SongService {
 
     List<SongSummaryResponse> getSongsByLanguage(String language);
 
-    Page<SongSummaryResponse> searchSongs(String keyword, Pageable pageable);
+    Page<SongSummaryResponse> searchSongs(String query, Pageable pageable);
+
+    List<SongSummaryResponse> getSongsByArtist(String artist);
+
+    List<SongSummaryResponse> getSongsByReleaseType(String releaseType);
+
+    List<SongSummaryResponse> getFeaturingSongs();
 
     Song findOrCreateSong(SongRequest request);
 }

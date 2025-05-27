@@ -200,7 +200,7 @@ public class DataInitializationServiceImpl implements DataInitializationService{
                 }
 
                 // Create album
-                albumService.createAlbum(request, null);
+                albumService.createAlbum(request);
             }
 
             log.info("Albums initialized successfully");
