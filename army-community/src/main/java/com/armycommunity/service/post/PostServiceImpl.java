@@ -178,6 +178,8 @@ public class PostServiceImpl implements PostService {
         return response;
     }
 
+    @Override
+    @Transactional
     public void moderatePost(Long postId, Long moderatorId, String action, String reason) {
         User moderator = userService.findById(moderatorId).orElseThrow(() -> new IllegalArgumentException("Moderator not found"));
 

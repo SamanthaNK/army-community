@@ -1,56 +1,52 @@
 package com.armycommunity.service.datainitialization;
 
-import com.armycommunity.dto.request.album.AlbumRequest;
-import com.armycommunity.dto.request.album.EraRequest;
-import com.armycommunity.dto.request.member.MemberRequest;
-import com.armycommunity.dto.request.song.MusicVideoRequest;
-import com.armycommunity.dto.request.song.SongRequest;
 import com.armycommunity.model.album.Album;
+import com.armycommunity.model.album.AlbumType;
 import com.armycommunity.model.album.Era;
+import com.armycommunity.model.album.MemberAlbum;
 import com.armycommunity.model.member.Member;
 import com.armycommunity.model.member.MemberLine;
 import com.armycommunity.model.member.MemberLineAssignment;
+import com.armycommunity.model.song.MusicVideo;
 import com.armycommunity.model.song.Song;
 import com.armycommunity.model.song.SongMember;
 import com.armycommunity.repository.album.AlbumRepository;
 import com.armycommunity.repository.album.EraRepository;
+import com.armycommunity.repository.album.MemberAlbumRepository;
 import com.armycommunity.repository.member.MemberLineAssignmentRepository;
 import com.armycommunity.repository.member.MemberRepository;
 import com.armycommunity.repository.song.MusicVideoRepository;
 import com.armycommunity.repository.song.SongMemberRepository;
 import com.armycommunity.repository.song.SongRepository;
-import com.armycommunity.service.album.AlbumService;
-import com.armycommunity.service.era.EraService;
-import com.armycommunity.service.member.MemberService;
-import com.armycommunity.service.musicvideo.MusicVideoService;
-import com.armycommunity.service.song.SongService;
+import com.armycommunity.service.setting.SettingService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.stream.Collectors;
 
-/**
- * Implementation of DataInitializationService for initializing the database with BTS data
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class DataInitializationServiceImpl implements DataInitializationService{
+@Order(1)
+public class DataInitializationServiceImpl implements CommandLineRunner {
 
-    private final MemberService memberService;
-    private final EraService eraService;
-    private final AlbumService albumService;
-    private final SongService songService;
-    private final MusicVideoService musicVideoService;
+    private final SettingService settingService;
 
     private final MemberRepository memberRepository;
     private final EraRepository eraRepository;
@@ -59,296 +55,406 @@ public class DataInitializationServiceImpl implements DataInitializationService{
     private final MusicVideoRepository musicVideoRepository;
     private final MemberLineAssignmentRepository memberLineAssignmentRepository;
     private final SongMemberRepository songMemberRepository;
+    private final MemberAlbumRepository memberAlbumRepository;
 
     private final ObjectMapper objectMapper;
 
-    /**
-     * Initializes BTS members data
-     */
+    private static final String DATA_PATH = "data/";
+    private static final String INITIALIZATION_FLAG_KEY = "data_initialized";
+
     @Override
     @Transactional
+    public void run(String... args) throws Exception {
+        if (isDataInitialized()) {
+            log.info("Data initialization skipped - data already exists");
+            return;
+        }
+
+        log.info("Starting BTS data initialization...");
+        long startTime = System.currentTimeMillis();
+
+        try {
+            initializeMembers();
+            initializeEras();
+            initializeAlbums();
+            initializeSongs();
+            initializeMusicVideos();
+
+            long endTime = System.currentTimeMillis();
+            log.info("Data initialization completed successfully in {} ms", endTime - startTime);
+
+        } catch (Exception e) {
+            log.error("Data initialization failed: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to initialize data", e);
+        }
+    }
+
+    private boolean isDataInitialized() {
+        // Check if core data exists
+        boolean hasMembers = memberRepository.count() > 0;
+        boolean hasEras = eraRepository.count() > 0;
+        boolean hasAlbums = albumRepository.count() > 0;
+
+        return hasMembers && hasEras && hasAlbums;
+    }
+
+    @Transactional
     public void initializeMembers() {
-        // Check if members are already initialized
         if (memberRepository.count() > 0) {
             log.info("Members already initialized, skipping...");
             return;
         }
 
+        log.info("Initializing BTS members...");
+
         try {
-            // Load member data from JSON file
-            ClassPathResource resource = new ClassPathResource("data/members.json");
-            List<Map<String, Object>> membersData = objectMapper.readValue(
-                    resource.getInputStream(),
-                    new TypeReference<List<Map<String, Object>>>() {}
-            );
+            List<MemberData> memberDataList = loadJsonData("members.json", new TypeReference<List<MemberData>>() {
+            });
 
-            // Process each member
-            for (Map<String, Object> memberData : membersData) {
-                // Create member request
-                MemberRequest request = new MemberRequest();
-                request.setStageName((String) memberData.get("stageName"));
-                request.setRealName((String) memberData.get("realName"));
-                request.setBirthday(LocalDate.parse((String) memberData.get("birthday")));
-                request.setPosition((String) memberData.get("position"));
+            for (MemberData memberData : memberDataList) {
+                Member member = createMemberFromData(memberData);
+                member = memberRepository.save(member);
 
-                // Create member
-                Member member = memberService.findOrCreateMember(request);
-
-                // Add member lines
-                @SuppressWarnings("unchecked")
-                Set<MemberLine> lines = (Set<MemberLine>) memberData.get("lines");
-                for (MemberLine line : lines) {
-                    MemberLineAssignment lineAssignment = new MemberLineAssignment();
-                    lineAssignment.setMember(member);
-                    lineAssignment.setLineType(line);
-                    memberLineAssignmentRepository.save(lineAssignment);
+                // Save line assignments
+                for (MemberLine lineType : memberData.getLineTypes()) {
+                    MemberLineAssignment assignment = MemberLineAssignment.builder()
+                            .member(member)
+                            .lineType(lineType)
+                            .build();
+                    memberLineAssignmentRepository.save(assignment);
                 }
+
+                log.debug("Initialized member: {} with {} line assignments",
+                        member.getStageName(), memberData.getLineTypes().size());
             }
 
-            log.info("Members initialized successfully");
-        } catch (IOException e) {
-            log.error("Failed to initialize members", e);
-            throw new RuntimeException("Failed to initialize members", e);
+            long memberCount = memberRepository.count();
+            log.info("Successfully initialized {} BTS members", memberCount);
+
+        } catch (Exception e) {
+            log.error("Failed to initialize members: {}", e.getMessage(), e);
+            throw new RuntimeException("Member initialization failed", e);
         }
     }
 
-    /**
-     * Initializes BTS eras data
-     */
-    @Override
     @Transactional
     public void initializeEras() {
-        // Check if eras are already initialized
         if (eraRepository.count() > 0) {
             log.info("Eras already initialized, skipping...");
             return;
         }
 
+        log.info("Initializing BTS eras...");
+
         try {
-            // Load era data from JSON file
-            ClassPathResource resource = new ClassPathResource("data/eras.json");
-            List<Map<String, Object>> erasData = objectMapper.readValue(
-                    resource.getInputStream(),
-                    new TypeReference<List<Map<String, Object>>>() {}
-            );
+            List<EraData> eraDataList = loadJsonData("eras.json", new TypeReference<List<EraData>>() {});
 
-            // Process each era
-            for (Map<String, Object> eraData : erasData) {
-                // Create era request
-                EraRequest request = new EraRequest();
-                request.setName((String) eraData.get("name"));
-                request.setStartDate(LocalDate.parse((String) eraData.get("startDate")));
+            for (EraData eraData : eraDataList) {
+                Era era = Era.builder()
+                        .name(eraData.getName())
+                        .startDate(eraData.getStartDate())
+                        .endDate(eraData.getEndDate())
+                        .description(eraData.getDescription())
+                        .createdAt(LocalDateTime.now())
+                        .updatedAt(LocalDateTime.now())
+                        .build();
 
-                // Parse end date if available
-                String endDateStr = (String) eraData.get("endDate");
-                if (endDateStr != null && !endDateStr.isEmpty()) {
-                    request.setEndDate(LocalDate.parse(endDateStr));
-                }
-
-                request.setDescription((String) eraData.get("description"));
-
-                // Create era
-                eraService.createEra(request);
+                eraRepository.save(era);
+                log.debug("Initialized era: {}", era.getName());
             }
 
-            log.info("Eras initialized successfully");
-        } catch (IOException e) {
-            log.error("Failed to initialize eras", e);
-            throw new RuntimeException("Failed to initialize eras", e);
+            long eraCount = eraRepository.count();
+            log.info("Successfully initialized {} BTS eras", eraCount);
+
+        } catch (Exception e) {
+            log.error("Failed to initialize eras: {}", e.getMessage(), e);
+            throw new RuntimeException("Era initialization failed", e);
         }
     }
 
-    /**
-     * Initializes BTS albums data
-     */
-    @Override
     @Transactional
     public void initializeAlbums() {
-        // Check if albums are already initialized
         if (albumRepository.count() > 0) {
             log.info("Albums already initialized, skipping...");
             return;
         }
 
+        log.info("Initializing BTS albums...");
+
         try {
-            // Load album data from JSON file
-            ClassPathResource resource = new ClassPathResource("data/albums.json");
-            List<Map<String, Object>> albumsData = objectMapper.readValue(
-                    resource.getInputStream(),
-                    new TypeReference<List<Map<String, Object>>>() {}
-            );
+            List<AlbumData> albumDataList = loadJsonData("albums.json", new TypeReference<List<AlbumData>>() {});
+            Map<String, Era> eraMap = eraRepository.findAll().stream()
+                    .collect(Collectors.toMap(Era::getName, era -> era));
 
-            // Process each album
-            for (Map<String, Object> albumData : albumsData) {
-                // Create album request
-                AlbumRequest request = new AlbumRequest();
-                request.setTitle((String) albumData.get("title"));
-                request.setKoreanTitle((String) albumData.get("koreanTitle"));
-                request.setAlbumType(AlbumType.valueOf((String) albumData.get("albumType")));
-                request.setReleaseDate(LocalDate.parse((String) albumData.get("releaseDate")));
-                request.setArtist((String) albumData.get("artist"));
-                request.setDescription((String) albumData.get("description"));
+            int processedCount = 0;
 
-                // Get era ID if available
-                String eraName = (String) albumData.get("era");
-                if (eraName != null && !eraName.isEmpty()) {
-                    Era era = eraRepository.findByName(eraName)
-                            .orElse(null);
-                    if (era != null) {
-                        request.setEraId(era.getId());
-                    }
+            for (AlbumData albumData : albumDataList) {
+                Era era = eraMap.get(albumData.getEraName());
+                if (era == null) {
+                    log.warn("Era '{}' not found for album '{}'", albumData.getEraName(), albumData.getTitle());
+                    continue;
                 }
 
-                // Create album
-                albumService.createAlbum(request);
+                Album album = Album.builder()
+                        .title(albumData.getTitle())
+                        .koreanTitle(albumData.getKoreanTitle())
+                        .albumType(albumData.getAlbumType())
+                        .releaseDate(albumData.getReleaseDate())
+                        .era(era)
+                        .artist(albumData.getArtist())
+                        .isOfficial(albumData.getIsOfficial())
+                        .coverImagePath(albumData.getCoverImagePath())
+                        .description(albumData.getDescription())
+                        .createdAt(LocalDateTime.now())
+                        .updatedAt(LocalDateTime.now())
+                        .build();
+
+                album = albumRepository.save(album);
+
+                // Handle member albums if specified
+                if (albumData.getMemberIds() != null && !albumData.getMemberIds().isEmpty()) {
+                    saveMemberAlbumAssociations(album, albumData.getMemberIds());
+                }
+
+                processedCount++;
+                log.debug("Initialized album: {} ({})", album.getTitle(), album.getAlbumType());
             }
 
-            log.info("Albums initialized successfully");
-        } catch (IOException e) {
-            log.error("Failed to initialize albums", e);
-            throw new RuntimeException("Failed to initialize albums", e);
+            log.info("Successfully initialized {} BTS albums", processedCount);
+
+        } catch (Exception e) {
+            log.error("Failed to initialize albums: {}", e.getMessage(), e);
+            throw new RuntimeException("Album initialization failed", e);
         }
     }
 
-    /**
-     * Initializes BTS songs data
-     */
-    @Override
     @Transactional
     public void initializeSongs() {
-        // Check if songs are already initialized
         if (songRepository.count() > 0) {
             log.info("Songs already initialized, skipping...");
             return;
         }
 
+        log.info("Initializing BTS songs...");
+
         try {
-            // Load song data from JSON file
-            ClassPathResource resource = new ClassPathResource("data/songs.json");
-            List<Map<String, Object>> songsData = objectMapper.readValue(
-                    resource.getInputStream(),
-                    new TypeReference<List<Map<String, Object>>>() {}
-            );
+            List<SongData> songDataList = loadJsonData("songs.json", new TypeReference<List<SongData>>() {});
+            Map<String, Album> albumMap = albumRepository.findAll().stream()
+                    .collect(Collectors.toMap(Album::getTitle, album -> album));
+            Map<String, Member> memberMap = memberRepository.findAll().stream()
+                    .collect(Collectors.toMap(Member::getStageName, member -> member));
 
-            // Process each song
-            for (Map<String, Object> songData : songsData) {
-                // Find the album
-                String albumTitle = (String) songData.get("albumTitle");
-                String artist = (String) songData.get("artist");
+            int processedCount = 0;
 
-                Album album = null;
-                if (albumTitle != null && !albumTitle.isEmpty()) {
-                    album = albumRepository.findByTitleAndArtist(albumTitle, artist)
-                            .orElse(null);
+            for (SongData songData : songDataList) {
+                Album album = albumMap.get(songData.getAlbumTitle());
+                if (album == null) {
+                    log.warn("Album '{}' not found for song '{}'", songData.getAlbumTitle(), songData.getTitle());
+                    continue;
                 }
 
-                // Create song request
-                SongRequest request = new SongRequest();
-                request.setTitle((String) songData.get("title"));
-                request.setKoreanTitle((String) songData.get("koreanTitle"));
-                request.setDuration((Integer) songData.get("duration"));
-                request.setTrackNumber((Integer) songData.get("trackNumber"));
-                request.setIsTitle((Boolean) songData.get("isTitle"));
-                request.setLyrics((String) songData.get("lyrics"));
-                request.setLanguage((String) songData.get("language"));
+                Song song = Song.builder()
+                        .title(songData.getTitle())
+                        .album(album)
+                        .koreanTitle(songData.getKoreanTitle())
+                        .duration(songData.getDuration())
+                        .trackNumber(songData.getTrackNumber())
+                        .isTitle(songData.getIsTitle())
+                        .doolsetUrl(songData.getDoolsetUrl())
+                        .geniusUrl(songData.getGeniusUrl())
+                        .language(songData.getLanguage())
+                        .featuringArtist(new String[]{songData.getFeaturingArtist()})
+                        .releaseDate(songData.getReleaseDate())
+                        .releaseType(songData.getReleaseType())
+                        .artist(songData.getArtist())
+                        .url(songData.getUrl())
+                        .createdAt(LocalDateTime.now())
+                        .updatedAt(LocalDateTime.now())
+                        .build();
 
-                // Set album ID if available
-                if (album != null) {
-                    request.setAlbumId(album.getId());
+                song = songRepository.save(song);
+
+                // Handle song member associations
+                if (songData.getMemberNames() != null && !songData.getMemberNames().isEmpty()) {
+                    saveSongMemberAssociations(song, songData.getMemberNames(), memberMap);
                 }
 
-                // Create song
-                Song song = songService.findOrCreateSong(request);
-
-                // Add member associations
-                @SuppressWarnings("unchecked")
-                List<String> memberNames = (List<String>) songData.get("members");
-                if (memberNames != null) {
-                    for (String stageName : memberNames) {
-                        Member member = memberRepository.findByStageName(stageName)
-                                .orElse(null);
-
-                        if (member != null) {
-                            SongMember songMember = new SongMember();
-                            songMember.setSong(song);
-                            songMember.setMember(member);
-                            songMemberRepository.save(songMember);
-                        }
-                    }
+                processedCount++;
+                if (processedCount % 50 == 0) {
+                    log.debug("Processed {} songs...", processedCount);
                 }
             }
 
-            log.info("Songs initialized successfully");
-        } catch (IOException e) {
-            log.error("Failed to initialize songs", e);
-            throw new RuntimeException("Failed to initialize songs", e);
+            log.info("Successfully initialized {} BTS songs", processedCount);
+
+        } catch (Exception e) {
+            log.error("Failed to initialize songs: {}", e.getMessage(), e);
+            throw new RuntimeException("Song initialization failed", e);
         }
     }
 
-    /**
-     * Initializes BTS music videos data
-     */
-    @Override
     @Transactional
     public void initializeMusicVideos() {
-        // Check if music videos are already initialized
         if (musicVideoRepository.count() > 0) {
             log.info("Music videos already initialized, skipping...");
             return;
         }
 
+        log.info("Initializing BTS music videos...");
+
         try {
-            // Load music video data from JSON file
-            ClassPathResource resource = new ClassPathResource("data/music_videos.json");
-            List<Map<String, Object>> musicVideosData = objectMapper.readValue(
-                    resource.getInputStream(),
-                    new TypeReference<List<Map<String, Object>>>() {}
-            );
+            List<MusicVideoData> videoDataList = loadJsonData("music_videos.json", new TypeReference<List<MusicVideoData>>() {});
+            Map<String, Song> songMap = songRepository.findAll().stream()
+                    .collect(Collectors.toMap(Song::getTitle, song -> song));
 
-            // Process each music video
-            for (Map<String, Object> mvData : musicVideosData) {
-                // Find the song
-                String songTitle = (String) mvData.get("songTitle");
+            int processedCount = 0;
 
-                List<Song> songs = songRepository.findByTitleContainingIgnoreCase(songTitle);
-                if (songs.isEmpty()) {
-                    log.warn("Song not found for music video: {}", songTitle);
+            for (MusicVideoData videoData : videoDataList) {
+                Song song = songMap.get(videoData.getSongTitle());
+                if (song == null) {
+                    log.warn("Song '{}' not found for music video '{}'", videoData.getSongTitle(), videoData.getTitle());
                     continue;
                 }
 
-                Song song = songs.get(0);
+                MusicVideo musicVideo = MusicVideo.builder()
+                        .song(song)
+                        .title(videoData.getTitle())
+                        .releaseDate(videoData.getReleaseDate())
+                        .videoType(videoData.getVideoType())
+                        .url(videoData.getUrl())
+                        .createdAt(LocalDateTime.now())
+                        .updatedAt(LocalDateTime.now())
+                        .build();
 
-                // Create music video request
-                MusicVideoRequest request = new MusicVideoRequest();
-                request.setSongId(song.getId());
-                request.setTitle((String) mvData.get("title"));
-                request.setReleaseDate(LocalDate.parse((String) mvData.get("releaseDate")));
-                request.setVideoType((String) mvData.get("videoType"));
-                request.setUrl((String) mvData.get("url"));
+                musicVideoRepository.save(musicVideo);
+                processedCount++;
 
-                // Create music video
-                musicVideoService.createMusicVideo(request);
+                log.debug("Initialized music video: {} for song: {}", videoData.getTitle(), song.getTitle());
             }
 
-            log.info("Music videos initialized successfully");
-        } catch (IOException e) {
-            log.error("Failed to initialize music videos", e);
-            throw new RuntimeException("Failed to initialize music videos", e);
+            log.info("Successfully initialized {} BTS music videos", processedCount);
+
+        } catch (Exception e) {
+            log.error("Failed to initialize music videos: {}", e.getMessage(), e);
+            throw new RuntimeException("Music video initialization failed", e);
         }
     }
 
-    /**
-     * Checks if core data is already initialized
-     * @return true if data is initialized, false otherwise
-     */
-    @Override
-    public boolean isDataInitialized() {
-        long memberCount = memberRepository.count();
-        long eraCount = eraRepository.count();
-        long albumCount = albumRepository.count();
-        long songCount = songRepository.count();
+    private Member createMemberFromData(MemberData memberData) {
+        return Member.builder()
+                .stageName(memberData.getStageName())
+                .realName(memberData.getRealName())
+                .birthday(memberData.getBirthday())
+                .position(memberData.getPosition())
+                .profileImagePath(memberData.getProfileImagePath())
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+    }
 
-        // Consider data initialized if we have members, eras, albums and songs
-        return memberCount > 0 && eraCount > 0 && albumCount > 0 && songCount > 0;
+    private void saveMemberAlbumAssociations(Album album, List<Long> memberIds) {
+        List<Member> members = memberRepository.findAllById(memberIds);
+        for (Member member : members) {
+            MemberAlbum memberAlbum = MemberAlbum.builder()
+                    .member(member)
+                    .album(album)
+                    .build();
+            memberAlbumRepository.save(memberAlbum);
+        }
+    }
+
+    private void saveSongMemberAssociations(Song song, List<String> memberNames, Map<String, Member> memberMap) {
+        for (String memberName : memberNames) {
+            Member member = memberMap.get(memberName);
+            if (member != null) {
+                SongMember songMember = SongMember.builder()
+                        .song(song)
+                        .member(member)
+                        .build();
+                songMemberRepository.save(songMember);
+            } else {
+                log.warn("Member '{}' not found for song '{}'", memberName, song.getTitle());
+            }
+        }
+    }
+
+    private <T> T loadJsonData(String filename, TypeReference<T> typeReference) throws IOException {
+        String fullPath = DATA_PATH + filename;
+
+        try (InputStream inputStream = new ClassPathResource(fullPath).getInputStream()) {
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.registerModule(new JavaTimeModule());
+            return mapper.readValue(inputStream, typeReference);
+        } catch (IOException e) {
+            log.error("Failed to load JSON data from {}: {}", fullPath, e.getMessage());
+            throw new IOException("Could not load data from " + fullPath, e);
+        }
+    }
+
+    // Data classes for JSON deserialization
+    @Setter
+    @Getter
+    private static class MemberData {
+        private String stageName;
+        private String realName;
+        private LocalDate birthday;
+        private String position;
+        private String profileImagePath;
+        private List<MemberLine> lineTypes;
+
+    }
+
+    @Setter
+    @Getter
+    private static class EraData {
+        private String name;
+        private LocalDate startDate;
+        private LocalDate endDate;
+        private String description;
+    }
+
+    @Setter
+    @Getter
+    private static class AlbumData {
+        private String title;
+        private String koreanTitle;
+        private AlbumType albumType;
+        private LocalDate releaseDate;
+        private String eraName;
+        private String artist;
+        private Boolean isOfficial;
+        private String coverImagePath;
+        private String description;
+        private List<Long> memberIds;
+    }
+
+    @Setter
+    @Getter
+    private static class SongData {
+        private String title;
+        private String koreanTitle;
+        private Integer duration;
+        private Integer trackNumber;
+        private Boolean isTitle;
+        private String doolsetUrl;
+        private String geniusUrl;
+        private String language;
+        private String featuringArtist;
+        private LocalDate releaseDate;
+        private String releaseType;
+        private String artist;
+        private String url;
+        private String albumTitle;
+        private List<String> memberNames;
+    }
+
+    @Setter
+    @Getter
+    private static class MusicVideoData {
+        private String title;
+        private LocalDate releaseDate;
+        private String videoType;
+        private String url;
+        private String songTitle;
     }
 }

@@ -20,8 +20,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -46,7 +47,6 @@ public class EventServiceImpl implements EventService {
 
         User creator = userService.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
-        ;
 
         Event event = eventMapper.toEntity(request);
         event.setCreatedBy(creator);
@@ -61,17 +61,33 @@ public class EventServiceImpl implements EventService {
 
         Event savedEvent = eventRepository.save(event);
 
+        // Log activity with detailed context
+        Map<String, Object> activityDetails = new HashMap<>();
+        activityDetails.put("title", savedEvent.getTitle());
+        activityDetails.put("eventType", savedEvent.getEventType());
+        activityDetails.put("startDate", savedEvent.getEventDate().toString());
+        activityDetails.put("location", savedEvent.getLocation());
+        activityDetails.put("isVerified", savedEvent.getIsVerified());
+        if (savedEvent.getIsVerified()) {
+            activityDetails.put("verifiedBy", creator.getUsername());
+            activityDetails.put("verifiedAt", savedEvent.getVerifiedAt().toString());
+        }
+        activityDetails.put("description", truncateString(savedEvent.getDescription()));
+
         activityLogService.logActivity(
                 userId,
-                "CREATE_EVENT",
+                "EVENT_CREATE",
                 "EVENT",
                 savedEvent.getId(),
-                Collections.emptyMap());
+                activityDetails);
 
         log.info("Successfully created event with id: {} and title: {}", savedEvent.getId(), savedEvent.getTitle());
         return eventMapper.toResponse(savedEvent);
+    }
 
-
+    private String truncateString(String str) {
+        if (str == null) return "";
+        return str.length() > 100 ? str.substring(0, 100) + "..." : str;
     }
 
     @Override
@@ -101,6 +117,11 @@ public class EventServiceImpl implements EventService {
             throw new UnauthorizedException("You don't have permission to update this event");
         }
 
+        String oldTitle = event.getTitle();
+        String oldDescription = event.getDescription();
+        String oldLocation = event.getLocation();
+        boolean wasVerified = event.getIsVerified();
+
         eventMapper.updateEventFromRequest(request, event);
 
         // If event was modified by someone other than the creator, mark as unverified
@@ -113,12 +134,25 @@ public class EventServiceImpl implements EventService {
 
         Event updatedEvent = eventRepository.save(event);
 
+        // Log activity with detailed changes
+        Map<String, Object> activityDetails = new HashMap<>();
+        activityDetails.put("action", "Updated event");
+        activityDetails.put("oldTitle", oldTitle);
+        activityDetails.put("newTitle", updatedEvent.getTitle());
+        activityDetails.put("oldLocation", oldLocation);
+        activityDetails.put("newLocation", updatedEvent.getLocation());
+        activityDetails.put("oldDescription", truncateString(oldDescription));
+        activityDetails.put("newDescription", truncateString(updatedEvent.getDescription()));
+        activityDetails.put("startDate", updatedEvent.getEventDate().toString());
+        activityDetails.put("wasVerified", wasVerified);
+        activityDetails.put("isVerified", updatedEvent.getIsVerified());
+
         activityLogService.logActivity(
                 userId,
-                "UPDATE_EVENT",
+                "EVENT_UPDATE",
                 "EVENT",
                 eventId,
-                Collections.emptyMap());
+                activityDetails);
 
         log.info("Successfully updated event with id: {}", eventId);
         return eventMapper.toResponse(updatedEvent);
@@ -140,15 +174,31 @@ public class EventServiceImpl implements EventService {
             throw new UnauthorizedException("You don't have permission to delete this event");
         }
 
+        // Store event details before deletion for logging
+        String eventTitle = event.getTitle();
+        String eventType = event.getEventType();
+        String location = event.getLocation();
+        boolean wasVerified = event.getIsVerified();
+        String creatorUsername = event.getCreatedBy().getUsername();
+
         eventRepository.delete(event);
 
-        // Log activity
+        // Log activity with details of the deleted event
+        Map<String, Object> activityDetails = new HashMap<>();
+        activityDetails.put("action", "Deleted event");
+        activityDetails.put("title", eventTitle);
+        activityDetails.put("eventType", eventType);
+        activityDetails.put("location", location);
+        activityDetails.put("wasVerified", wasVerified);
+        activityDetails.put("createdBy", creatorUsername);
+        activityDetails.put("deletedAt", LocalDateTime.now().toString());
+
         activityLogService.logActivity(
                 userId,
-                "DELETE_EVENT",
+                "EVENT_DELETE",
                 "EVENT",
                 eventId,
-                Collections.emptyMap());
+                activityDetails);
 
         log.info("Successfully deleted event with id: {}", eventId);
     }
@@ -265,18 +315,25 @@ public class EventServiceImpl implements EventService {
             notificationService.createNotification(replyNotificationRequest);
         }
 
-        // Log activity
+        // Log activity with verification details
+        Map<String, Object> activityDetails = new HashMap<>();
+        activityDetails.put("action", "Verified event");
+        activityDetails.put("title", verifiedEvent.getTitle());
+        activityDetails.put("eventType", verifiedEvent.getEventType());
+        activityDetails.put("location", verifiedEvent.getLocation());
+        activityDetails.put("verifiedAt", verifiedEvent.getVerifiedAt().toString());
+        activityDetails.put("verifierUsername", verifier.getUsername());
+        activityDetails.put("eventCreator", verifiedEvent.getCreatedBy().getUsername());
+
         activityLogService.logActivity(
                 verifierId,
-                "VERIFY_EVENT",
+                "EVENT_VERIFY",
                 "EVENT",
                 eventId,
-                Collections.emptyMap());
+                activityDetails);
 
         log.info("Successfully verified event with id: {}", eventId);
         return eventMapper.toResponse(verifiedEvent);
-
-
     }
 
     @Override

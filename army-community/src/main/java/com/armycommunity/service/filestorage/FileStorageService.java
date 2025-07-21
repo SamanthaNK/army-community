@@ -13,7 +13,7 @@ public interface FileStorageService {
 
     void deleteFile(String filePath) throws IOException;
 
-    Path getFilePath(String filename, String directory);
+    String getFilePath(String filename, String directory);
 
-    String getStorageDirectory();
+    Path getStorageDirectory();
 }

@@ -13,10 +13,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * MapStruct mapper interface for Era entity transformations.
- * Handles mapping between Era entities and their corresponding DTOs.
- */
 @Mapper(componentModel = "spring", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
 public interface EraMapper {
 

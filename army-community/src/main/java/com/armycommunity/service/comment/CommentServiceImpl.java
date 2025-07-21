@@ -21,7 +21,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 @Service
@@ -35,7 +37,6 @@ public class CommentServiceImpl implements CommentService {
     private final CommentMapper commentMapper;
     private final ActivityLogService activityLogService;
     private final NotificationService notificationService;
-
 
     @Override
     @Transactional
@@ -58,8 +59,19 @@ public class CommentServiceImpl implements CommentService {
         Comment savedComment = commentRepository.save(comment);
         log.info("Comment created with id: {} for postId: {} by userId: {}", savedComment.getId(), postId, userId);
 
-        // Log activity
-        activityLogService.logActivity(userId, "COMMENT_CREATE", "COMMENT", savedComment.getId(), Collections.emptyMap());
+        // Log activity with more details
+        Map<String, Object> activityDetails = new HashMap<>();
+        activityDetails.put("postId", postId);
+        activityDetails.put("postAuthor", post.getUser().getUsername());
+        activityDetails.put("commentContent", truncateString(savedComment.getContent()));
+        activityDetails.put("isReply", false);
+
+        activityLogService.logActivity(
+                userId,
+                "COMMENT_CREATE",
+                "COMMENT",
+                savedComment.getId(),
+                activityDetails);
 
         // Send notification to the post's owner if it's a different user
         if (!Objects.equals(post.getUser().getId(), userId)) {
@@ -71,6 +83,11 @@ public class CommentServiceImpl implements CommentService {
             );
         }
         return commentMapper.toResponse(savedComment);
+    }
+
+    private String truncateString(String str) {
+        if (str == null) return "";
+        return str.length() > 100 ? str.substring(0, 100) + "..." : str;
     }
 
     @Override
@@ -92,13 +109,24 @@ public class CommentServiceImpl implements CommentService {
         reply.setParentCommentId(parentCommentId);
         reply.setIsDeleted(false);
 
-
         Comment savedReply = commentRepository.save(reply);
         log.info("Reply created with id: {} to commentId: {} by userId: {}", savedReply.getId(), parentCommentId, userId);
 
-        // Log activity
+        // Log activity with more details
+        Map<String, Object> activityDetails = new HashMap<>();
+        activityDetails.put("parentCommentId", parentCommentId);
+        activityDetails.put("parentCommentAuthor", parentComment.getUser().getUsername());
+        activityDetails.put("postId", parentComment.getPost().getId());
+        activityDetails.put("postAuthor", parentComment.getPost().getUser().getUsername());
+        activityDetails.put("replyContent", truncateString(savedReply.getContent()));
+        activityDetails.put("isReply", true);
+
         activityLogService.logActivity(
-                userId, "COMMENT_REPLY", "COMMENT", savedReply.getId(), Collections.emptyMap());
+                userId,
+                "COMMENT_REPLY",
+                "COMMENT",
+                savedReply.getId(),
+                activityDetails);
 
         // Send notification to the parent comment owner if it's a different user
         if (!parentComment.getUser().getId().equals(userId)) {
@@ -136,22 +164,33 @@ public class CommentServiceImpl implements CommentService {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Comment not found with id: " + commentId));
 
-        if (comment.getIsDeleted()) {
-            throw new IllegalArgumentException("Comment not found with id: " + commentId);
+        if (!comment.getUser().getId().equals(userId)) {
+            throw new UnauthorizedException("You can only edit your own comments");
         }
 
-        // Check if the user is the owner of the comment
-        if (Objects.equals(comment.getUser().getId(), userId)) {
-            throw new UnauthorizedException("You can only update your own comments");
-        }
-
-        commentMapper.updateCommentFromRequest(request, comment);
+        String oldContent = comment.getContent();
+        comment.setContent(request.getContent());
         comment.setUpdatedAt(LocalDateTime.now());
-        Comment updatedComment = commentRepository.save(comment);
-        log.info("Comment updated with id: {} by userId: {}", updatedComment.getId(), userId);
 
-        // Log activity
-        activityLogService.logActivity(userId, "COMMENT_UPDATE", "COMMENT", updatedComment.getId(), Collections.emptyMap());
+        Comment updatedComment = commentRepository.save(comment);
+
+        // Log activity with change details
+        Map<String, Object> activityDetails = new HashMap<>();
+        activityDetails.put("postId", comment.getPost().getId());
+        activityDetails.put("postAuthor", comment.getPost().getUser().getUsername());
+        activityDetails.put("oldContent", truncateString(oldContent));
+        activityDetails.put("newContent", truncateString(updatedComment.getContent()));
+        activityDetails.put("isReply", comment.getParentCommentId() != null);
+        if (comment.getParentCommentId() != null) {
+            activityDetails.put("parentCommentId", comment.getParentCommentId());
+        }
+
+        activityLogService.logActivity(
+                userId,
+                "COMMENT_UPDATE",
+                "COMMENT",
+                commentId,
+                activityDetails);
 
         return commentMapper.toResponse(updatedComment);
     }
@@ -164,14 +203,10 @@ public class CommentServiceImpl implements CommentService {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Comment not found with id: " + commentId));
 
-        if (comment.getIsDeleted()) {
-            log.warn("Comment with id: {} is already deleted", commentId);
-            return;
+        if (!comment.getUser().getId().equals(userId)) {
+            throw new UnauthorizedException("You can only delete your own comments");
         }
 
-        if (Objects.equals(comment.getUser().getId(), userId)) {
-            throw new UnauthorizedException("You are not authorized to delete this comment");
-        }
 
         comment.setIsDeleted(true);
         comment.setContent("[Comment deleted]");
@@ -179,7 +214,22 @@ public class CommentServiceImpl implements CommentService {
         commentRepository.save(comment);
 
         // Log activity
-        activityLogService.logActivity(userId, "COMMENT_DELETE", "COMMENT", commentId, Collections.emptyMap());
+        Map<String, Object> activityDetails = new HashMap<>();
+        activityDetails.put("postId", comment.getPost().getId());
+        activityDetails.put("postAuthor", comment.getPost().getUser().getUsername());
+        activityDetails.put("commentContent", truncateString(comment.getContent()));
+        activityDetails.put("isReply", comment.getParentCommentId() != null);
+        if (comment.getParentCommentId() != null) {
+            activityDetails.put("parentCommentId", comment.getParentCommentId());
+        }
+
+        activityLogService.logActivity(
+                userId,
+                "COMMENT_DELETE",
+                "COMMENT",
+                commentId,
+                activityDetails
+        );
     }
 
     @Override

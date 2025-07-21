@@ -7,12 +7,14 @@ import com.armycommunity.service.event.EventService;
 import com.armycommunity.service.user.UserService;
 import jakarta.servlet.http.HttpSession;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
-@Controller
+@RestController
 @RequestMapping("/admin")
 @Data
+@Slf4j
 public class AdminController {
 
     private final UserService userService;

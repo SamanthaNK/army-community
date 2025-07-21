@@ -1,12 +1,13 @@
 package com.armycommunity.dto.response.user;
 
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
-@Getter
-@Setter
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class NotificationResponse {
     private Long id;
     Long userId;

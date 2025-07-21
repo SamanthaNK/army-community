@@ -16,6 +16,8 @@ public interface PostService {
 
     PostResponse updatePost(Long postId, Long userId, PostRequest request);
 
+    void moderatePost(Long postId, Long moderatorId, String action, String reason);
+
     void deletePost(Long postId, Long userId);
 
     PostResponse likePost(Long postId, Long userId);

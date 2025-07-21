@@ -25,6 +25,7 @@ public interface SongMapper {
     @Mapping(target = "album", ignore = true)
     @Mapping(target = "songMembers", ignore = true)
     @Mapping(target = "musicVideos", ignore = true)
+    @Mapping(target = "featuringArtist", expression = "java(convertFeaturingArtist(request.getFeaturingArtist()))")
     Song toEntity(SongRequest request);
 
     @Mapping(target = "album", source = "album", qualifiedByName = "albumToAlbumSummary")
@@ -33,6 +34,9 @@ public interface SongMapper {
     @Mapping(target = "formattedDuration", source = "duration", qualifiedByName = "formatDuration")
     @Mapping(target = "isBTSOfficial", source = "artist", qualifiedByName = "checkIfBTSOfficial")
     @Mapping(target = "hasFeatures", source = ".", qualifiedByName = "checkIfHasFeatures")
+    @Mapping(target = "hasLyricsLinks", source = ".", qualifiedByName = "checkHasLyricsLinks")
+    @Mapping(target = "hasDoolsetLyrics", source = ".", qualifiedByName = "checkHasDoolsetLyrics")
+    @Mapping(target = "hasGeniusLyrics", source = ".", qualifiedByName = "checkHasGeniusLyrics")
     SongDetailResponse toDetailResponse(Song song);
 
     @Mapping(target = "isTitle", source = "isTitle", defaultValue = "false")
@@ -46,6 +50,7 @@ public interface SongMapper {
     @Mapping(target = "album", ignore = true)
     @Mapping(target = "songMembers", ignore = true)
     @Mapping(target = "musicVideos", ignore = true)
+    @Mapping(target = "featuringArtist", expression = "java(convertFeaturingArtist(request.getFeaturingArtist()))")
     void updateSongFromRequest(SongRequest request, @MappingTarget Song song);
 
     @Named("albumToAlbumSummary")
@@ -91,10 +96,14 @@ public interface SongMapper {
         return musicVideos.stream()
                 .map(mv -> MusicVideoResponse.builder()
                         .id(mv.getId())
+                        .songId(mv.getSong().getId())
+                        .songTitle(mv.getSong().getTitle())
                         .title(mv.getTitle())
                         .releaseDate(mv.getReleaseDate())
                         .videoType(mv.getVideoType())
                         .url(mv.getUrl())
+                        .createdAt(mv.getCreatedAt())
+                        .updatedAt(mv.getUpdatedAt())
                         .build())
                 .collect(Collectors.toList());
     }
@@ -140,4 +149,18 @@ public interface SongMapper {
         return !isBTSMain && !song.getSongMembers().isEmpty();
     }
 
+    @Named("checkHasLyricsLinks")
+    default boolean checkHasLyricsLinks(Song song) {
+        return song.hasLyricsLinks();
+    }
+
+    @Named("checkHasDoolsetLyrics")
+    default boolean checkHasDoolsetLyrics(Song song) {
+        return song.hasDoolsetLyrics();
+    }
+
+    @Named("checkHasGeniusLyrics")
+    default boolean checkHasGeniusLyrics(Song song) {
+        return song.hasGeniusLyrics();
+    }
 }

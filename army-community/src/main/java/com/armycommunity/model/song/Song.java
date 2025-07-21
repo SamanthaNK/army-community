@@ -48,8 +48,11 @@ public class Song {
     @Column(name = "isTitle")
     private Boolean isTitle = false;
 
-    @Column(name = "lyrics", columnDefinition = "TEXT")
-    private String lyrics;
+    @Column(name = "doolset_url")
+    private String doolsetUrl;
+
+    @Column(name = "genius_url")
+    private String geniusUrl;
 
     @Column(name = "language")
     private String language;
@@ -82,4 +85,18 @@ public class Song {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    // Helper methods
+    public boolean hasLyricsLinks() {
+        return (doolsetUrl != null && !doolsetUrl.trim().isEmpty()) ||
+                (geniusUrl != null && !geniusUrl.trim().isEmpty());
+    }
+
+    public boolean hasDoolsetLyrics() {
+        return doolsetUrl != null && !doolsetUrl.trim().isEmpty();
+    }
+
+    public boolean hasGeniusLyrics() {
+        return geniusUrl != null && !geniusUrl.trim().isEmpty();
+    }
 }

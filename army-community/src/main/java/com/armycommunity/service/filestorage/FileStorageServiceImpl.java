@@ -1,7 +1,7 @@
 package com.armycommunity.service.filestorage;
 
-import com.armycommunity.exception.FileStorageException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -15,79 +15,146 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class FileStorageServiceImpl implements FileStorageService {
 
-    private final Path fileStorageLocation;
+    @Value("${app.file.storage.path:uploads}")
+    private String storageBasePath;
 
-    public FileStorageServiceImpl(@Value("${file.upload-dir:uploads}") String uploadDir) {
-        this.fileStorageLocation = Paths.get(uploadDir).toAbsolutePath().normalize();
-        try {
-            Files.createDirectories(this.fileStorageLocation);
-        } catch (IOException ex) {
-            throw new FileStorageException("Could not create the directory where the uploaded files will be stored", ex);
-        }
-    }
+    @Value("${app.file.max-size:10485760}") // 10MB default
+    private long maxFileSize;
+
+    private static final String[] ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"};
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy/MM/dd");
 
     @Override
     public String storeFile(MultipartFile file, String directory) throws IOException {
-        // Normalize file name
+        if (file.isEmpty()) {
+            throw new IOException("Cannot store empty file");
+        }
+
+        if (file.getSize() > maxFileSize) {
+            throw new IOException("File size exceeds maximum allowed size");
+        }
+
         String originalFilename = StringUtils.cleanPath(file.getOriginalFilename());
-
-        // Check if the file's name contains invalid characters
-        if (originalFilename.contains("..")) {
-            throw new FileStorageException("Filename contains invalid path sequence: " + originalFilename);
+        if (!isValidFileType(originalFilename)) {
+            throw new IOException("File type not allowed: " + originalFilename);
         }
 
-        // Generate unique file name with UUID to prevent overwriting
-        String fileExtension = "";
-        if (originalFilename.contains(".")) {
-            fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
+        try {
+            // Create unique filename with timestamp and UUID
+            String fileExtension = getFileExtension(originalFilename);
+            String uniqueFilename = generateUniqueFilename(fileExtension);
+
+            // Create date-based directory structure
+            String dateDirectory = LocalDateTime.now().format(DATE_FORMATTER);
+            Path targetLocation = getStorageDirectory()
+                    .resolve(directory)
+                    .resolve(dateDirectory)
+                    .resolve(uniqueFilename);
+
+            // Create directories if they don't exist
+            Files.createDirectories(targetLocation.getParent());
+
+            // Copy file to target location
+            Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
+
+            String relativePath = directory + "/" + dateDirectory + "/" + uniqueFilename;
+            log.info("File stored successfully: {}", relativePath);
+
+            return relativePath;
+
+        } catch (IOException ex) {
+            log.error("Failed to store file {}: {}", originalFilename, ex.getMessage());
+            throw new IOException("Failed to store file " + originalFilename, ex);
         }
-        String uniqueFilename = UUID.randomUUID().toString() + fileExtension;
-
-        // Create directory if it doesn't exist
-        Path directoryPath = this.fileStorageLocation.resolve(directory).normalize();
-        Files.createDirectories(directoryPath);
-
-        // Copy file to the target location
-        Path targetLocation = directoryPath.resolve(uniqueFilename);
-        Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
-
-        return directory + "/" + uniqueFilename;
     }
 
     @Override
     public Resource loadFileAsResource(String filePath) {
         try {
-            Path file = this.fileStorageLocation.resolve(filePath).normalize();
+            Path file = getStorageDirectory().resolve(filePath).normalize();
             Resource resource = new UrlResource(file.toUri());
 
-            if (resource.exists()) {
+            if (resource.exists() && resource.isReadable()) {
                 return resource;
             } else {
-                throw new FileStorageException("File not found: " + filePath);
+                log.warn("File not found or not readable: {}", filePath);
+                throw new RuntimeException("File not found: " + filePath);
             }
         } catch (MalformedURLException ex) {
-            throw new FileStorageException("File not found: " + filePath, ex);
+            log.error("Malformed URL for file path {}: {}", filePath, ex.getMessage());
+            throw new RuntimeException("File not found: " + filePath, ex);
         }
     }
 
+    @Override
     public void deleteFile(String filePath) throws IOException {
-        Path file = this.fileStorageLocation.resolve(filePath).normalize();
-        Files.deleteIfExists(file);
+        try {
+            Path file = getStorageDirectory().resolve(filePath).normalize();
+
+            if (Files.exists(file)) {
+                Files.delete(file);
+                log.info("File deleted successfully: {}", filePath);
+            } else {
+                log.warn("Attempted to delete non-existent file: {}", filePath);
+            }
+        } catch (IOException ex) {
+            log.error("Failed to delete file {}: {}", filePath, ex.getMessage());
+            throw new IOException("Failed to delete file: " + filePath, ex);
+        }
     }
 
     @Override
-    public Path getFilePath(String filename, String directory) {
-        return this.fileStorageLocation.resolve(directory).resolve(filename).normalize();
+    public String getFilePath(String filename, String directory) {
+        return directory + "/" + filename;
     }
 
     @Override
-    public String getStorageDirectory() {
-        return this.fileStorageLocation.toString();
+    public Path getStorageDirectory() {
+        Path path = Paths.get(storageBasePath).normalize().toAbsolutePath();
+
+        try {
+            if (!Files.exists(path)) {
+                Files.createDirectories(path);
+                log.info("Created storage directory: {}", path);
+            }
+        } catch (IOException ex) {
+            log.error("Failed to create storage directory {}: {}", path, ex.getMessage());
+            throw new RuntimeException("Could not create storage directory", ex);
+        }
+
+        return path;
     }
+
+    private boolean isValidFileType(String filename) {
+        if (filename == null) return false;
+
+        String lowerCaseFilename = filename.toLowerCase();
+        for (String extension : ALLOWED_EXTENSIONS) {
+            if (lowerCaseFilename.endsWith(extension)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String getFileExtension(String filename) {
+        if (filename == null || !filename.contains(".")) {
+            return "";
+        }
+        return filename.substring(filename.lastIndexOf("."));
+    }
+
+    private String generateUniqueFilename(String extension) {
+        return UUID.randomUUID().toString() + extension;
+    }
+
 }

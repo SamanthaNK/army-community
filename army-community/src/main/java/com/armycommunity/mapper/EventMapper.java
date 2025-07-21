@@ -9,10 +9,6 @@ import org.mapstruct.*;
 
 import java.util.List;
 
-/**
- * Mapper interface for Event entity transformations.
- * Handles mapping between Event entities and their corresponding DTOs.
- */
 @Mapper(componentModel = "spring", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
 public interface EventMapper {
 

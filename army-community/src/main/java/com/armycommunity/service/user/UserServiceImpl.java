@@ -15,6 +15,7 @@ import com.armycommunity.service.activitylog.ActivityLogService;
 import com.armycommunity.service.filestorage.FileStorageService;
 import com.armycommunity.service.notification.NotificationService;
 import com.armycommunity.dto.request.user.NotificationRequest;
+import com.armycommunity.service.setting.SettingService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,6 +43,7 @@ public class UserServiceImpl implements UserService {
     private final NotificationService notificationService;
     private final FileStorageService fileStorageService;
     private final ActivityLogService activityLogService;
+    private final SettingService settingService;
 
     @Override
     @Transactional
@@ -58,19 +60,38 @@ public class UserServiceImpl implements UserService {
         // Create user entity
         User user = userMapper.toEntity(request);
         user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setCreatedAt(LocalDateTime.now());
+        user.setUpdatedAt(LocalDateTime.now());
+        user.setActive(true);
+        user.setUserRole(UserRole.USER);
+
+        // Apply user preferences from registration
+        if (request.getLanguagePreference() != null) {
+            user.setLanguagePreference(request.getLanguagePreference());
+        }
+        if (request.getTimezone() != null) {
+            user.setTimezone(request.getTimezone());
+        }
 
         // Save user
         User savedUser = userRepository.save(user);
-        log.info("Successfully registered user with ID: {} and username: {}",
-                savedUser.getId(), savedUser.getUsername());
+
+        // Initialize default settings for new user
+        try {
+            settingService.initializeUserSettings(savedUser.getId());
+        } catch (Exception e) {
+            log.warn("Failed to initialize settings for user {}: {}", savedUser.getId(), e.getMessage());
+        }
 
         // Log activity
         activityLogService.logActivity(
                 savedUser.getId(),
                 "USER_REGISTERED",
-                "User", savedUser.getId(),
-                Collections.emptyMap());
+                "USER",
+                savedUser.getId(),
+                Map.of("username", savedUser.getUsername(), "email", savedUser.getEmail()));
 
+        log.info("Successfully registered user with ID: {} and username: {}", savedUser.getId(), savedUser.getUsername());
         return userMapper.toDetailResponse(savedUser);
     }
 
@@ -81,6 +102,8 @@ public class UserServiceImpl implements UserService {
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+
+        updateLastLogin(user);
 
         return userMapper.toDetailResponse(user);
     }
@@ -109,6 +132,17 @@ public class UserServiceImpl implements UserService {
         if (!response.isOwnProfile()) {
             response.setEmail(null);
             response.setOauthProvider(null);
+        }
+
+        // Log profile view if different user
+        if (currentUserId != null && !currentUserId.equals(user.getId())) {
+            activityLogService.logActivity(
+                    currentUserId,
+                    "PROFILE_VIEWED",
+                    "USER",
+                    user.getId(),
+                    Map.of("viewed_username", username)
+            );
         }
 
         return response;
@@ -161,12 +195,31 @@ public class UserServiceImpl implements UserService {
 
             // Update other fields
             userMapper.updateUserFromRequest(request, user);
+            user.setUpdatedAt(LocalDateTime.now());
 
             User updatedUser = userRepository.save(user);
             log.info("User profile updated successfully for ID: {}", userId);
 
+            // Update user-specific settings from request
+            updateUserSettings(userId, request);
+
             // Log activity
-            activityLogService.logActivity(userId, "PROFILE_UPDATED", "USER", userId, null);
+            Map<String, Object> changes = new HashMap<>();
+            if (!originalEmail.equals(updatedUser.getEmail())) {
+                changes.put("email_changed", true);
+            }
+            if (request.getNewPassword() != null) {
+                changes.put("password_changed", true);
+            }
+            if (request.getProfileImage() != null && !request.getProfileImage().isEmpty()) {
+                changes.put("profile_image_changed", true);
+            }
+            activityLogService.logActivity(
+                    userId,
+                    "PROFILE_UPDATED",
+                    "USER",
+                    userId,
+                    changes);
 
             return userMapper.toDetailResponse(updatedUser);
 
@@ -242,7 +295,6 @@ public class UserServiceImpl implements UserService {
             return userMapper.toSummaryResponseList(users);
 
         } catch (Exception e) {
-            log.error("Error searching users with query: {}", query, e);
             throw new RuntimeException("Failed to search users", e);
         }
     }
@@ -300,6 +352,8 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User saveUser(User user) {
+        log.debug("Saving user: {}", user.getUsername());
+        user.setUpdatedAt(LocalDateTime.now());
         return userRepository.save(user);
     }
 
@@ -673,6 +727,16 @@ public class UserServiceImpl implements UserService {
         return userMapper.toSummaryResponseList(users);
     }
 
+    @Transactional
+    private void updateLastLogin(User user) {
+        try {
+            user.setLastLoginAt(LocalDateTime.now());
+            userRepository.save(user);
+        } catch (Exception e) {
+            log.warn("Failed to update last login for user: {}", user.getUsername(), e);
+        }
+    }
+
     // Helper methods
     private String getFileExtension(String fileName) {
         if (fileName == null || fileName.lastIndexOf('.') == -1) {
@@ -700,6 +764,19 @@ public class UserServiceImpl implements UserService {
             log.warn("Error checking follow relationship between user {} and {}: {}",
                     followerId, followingId, e.getMessage());
             return false;
+        }
+    }
+
+    private void updateUserSettings(Long userId, UserUpdateRequest request) {
+        try {
+            if (request.getLanguagePreference() != null) {
+                settingService.saveSetting(userId, "language_preference", request.getLanguagePreference());
+            }
+            if (request.getTimezone() != null) {
+                settingService.saveSetting(userId, "time_zone", request.getTimezone());
+            }
+        } catch (Exception e) {
+            log.warn("Failed to update settings for user {}: {}", userId, e.getMessage());
         }
     }
 }

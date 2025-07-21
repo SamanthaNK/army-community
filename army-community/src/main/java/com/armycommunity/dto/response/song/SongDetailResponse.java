@@ -19,7 +19,9 @@ public class SongDetailResponse {
     private Integer duration;
     private Integer trackNumber;
     private Boolean isTitle;
-    private String lyrics;
+    private boolean hasLyricsLinks;
+    private boolean hasDoolsetLyrics;
+    private boolean hasGeniusLyrics;
     private String language;
     private String[] featuringArtist;
     private LocalDate releaseDate;

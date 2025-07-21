@@ -17,10 +17,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * Mapper interface for converting between Album entity and related DTOs.
- * Uses MapStruct to generate implementation at compile time.
- */
 @Mapper(componentModel = "spring", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
 public interface AlbumMapper {
 

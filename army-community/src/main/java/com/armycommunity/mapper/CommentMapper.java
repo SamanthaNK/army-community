@@ -12,12 +12,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * Mapper interface for converting between Comment entities and DTOs.
- * This interface uses MapStruct to generate the implementation at compile time.
- * It defines methods for converting CommentRequest to Comment entity,
- * Comment entity to CommentResponse, and vice versa.
- */
 @Mapper(componentModel = "spring", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
 public interface CommentMapper {
 

@@ -41,11 +41,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Long countByIsActiveFalse();
 
-    // For suspension management
     List<User> findBySuspendedUntilBeforeAndIsActiveFalse(LocalDateTime dateTime);
     List<User> findByIsActiveFalse();
 
-    // For moderation
     List<User> findByCreatedAtAfterAndUserRole(LocalDateTime dateTime, UserRole role);
 
     // Update your existing method to work with new role system

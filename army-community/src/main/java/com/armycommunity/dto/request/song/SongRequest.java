@@ -29,7 +29,13 @@ public class SongRequest {
     @Builder.Default
     private Boolean isTitle = false;
 
-    private String lyrics;
+    @Pattern(regexp = "^(https?://.*doolset.*|)$",
+            message = "Doolset URL must be a valid Doolset link")
+    private String doolsetUrl;
+
+    @Pattern(regexp = "^(https?://genius\\.com/.*|)$",
+            message = "Genius URL must be a valid Genius link")
+    private String geniusUrl;
 
     private String language;
 
@@ -48,4 +54,21 @@ public class SongRequest {
 
     // List of member IDs that perform on this song
     private List<Long> memberIds;
+
+    // Helper methods
+    public boolean hasLyricsLinks() {
+        return hasDoolsetUrl() || hasGeniusUrl();
+    }
+
+    public boolean hasDoolsetUrl() {
+        return doolsetUrl != null && !doolsetUrl.trim().isEmpty();
+    }
+
+    public boolean hasGeniusUrl() {
+        return geniusUrl != null && !geniusUrl.trim().isEmpty();
+    }
+
+    public boolean hasMembers() {
+        return memberIds != null && !memberIds.isEmpty();
+    }
 }

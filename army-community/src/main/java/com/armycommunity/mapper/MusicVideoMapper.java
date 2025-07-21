@@ -32,6 +32,4 @@ public interface MusicVideoMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     void updateMusicVideoFromRequest(MusicVideoRequest request, @MappingTarget MusicVideo musicVideo);
-
-
 }
